@@ -1,0 +1,145 @@
+package com.kazox.ui.components.progress
+
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.kazox.ui.foundation.KazMotion
+import com.kazox.ui.foundation.KazTheme
+
+// ─── Animation Enum ─────────────────────────────────────────
+
+public enum class ProgressAnimation {
+    /** Spring physics, handles interruptions. Default. */
+    Spring,
+
+    /** Smooth eased tween using theme duration. */
+    Tween,
+
+    /** Instant jump, no interpolation. */
+    None,
+}
+
+// ─── Component ──────────────────────────────────────────────
+
+/**
+ * Horizontal progress bar with animated fill and accessibility semantics.
+ *
+ * The progress value is clamped to 0..1. The fill animates between values using
+ * the selected [animation] strategy. Screen readers announce the current percentage
+ * via [ProgressBarRangeInfo].
+ *
+ * ```
+ * Progress(progress = 0.6f)
+ *
+ * Progress(
+ *     progress = downloadProgress,
+ *     fillColor = KazTheme.colors.success,
+ *     animation = ProgressAnimation.Tween,
+ *     label = "Download",
+ * )
+ * ```
+ *
+ * @param progress Current progress as a Float from 0.0 to 1.0.
+ * @param modifier [Modifier] applied to the track container.
+ * @param trackColor Background track color; [Color.Unspecified] defaults to theme muted.
+ * @param fillColor Fill bar color; [Color.Unspecified] defaults to theme primary.
+ * @param height Track height in [Dp]; defaults to 8.dp.
+ * @param animation [ProgressAnimation] controlling the fill interpolation (Spring, Tween, or None).
+ * @param label Accessibility label prefix (e.g. "Download"); included in state description.
+ */
+@Composable
+public fun Progress(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    trackColor: Color = Color.Unspecified,
+    fillColor: Color = Color.Unspecified,
+    height: Dp = 8.dp,
+    animation: ProgressAnimation = ProgressAnimation.Spring,
+    label: String = "",
+) {
+    val clampedProgress = progress.coerceIn(0f, 1f)
+    val motion = KazTheme.motion
+    val colors = KazTheme.colors
+    val shapes = KazTheme.shapes
+
+    val resolvedTrackColor =
+        if (trackColor != Color.Unspecified) trackColor else colors.muted
+    val resolvedFillColor =
+        if (fillColor != Color.Unspecified) fillColor else colors.primary
+
+    // ─── Resolve animation spec from enum + theme tokens ──
+    val animationSpec: AnimationSpec<Float> = resolveAnimationSpec(animation, motion)
+
+    // ─── Animated fill fraction ───────────────────────────
+    val animatedFraction by animateFloatAsState(
+        targetValue = clampedProgress,
+        animationSpec = animationSpec,
+    )
+
+    val percentText = "${(clampedProgress * 100).toInt()}%"
+
+    // ─── Track ────────────────────────────────────────────
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(height)
+                .clip(shapes.full)
+                .background(resolvedTrackColor, shapes.full)
+                .semantics(mergeDescendants = true) {
+                    progressBarRangeInfo =
+                        ProgressBarRangeInfo(
+                            current = clampedProgress,
+                            range = 0f..1f,
+                        )
+                    stateDescription =
+                        if (label.isNotEmpty()) {
+                            "$label: $percentText"
+                        } else {
+                            "Progress: $percentText"
+                        }
+                },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        // ─── Fill ─────────────────────────────────────────
+        if (animatedFraction > 0f) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth(fraction = animatedFraction)
+                        .height(height)
+                        .clip(shapes.full)
+                        .background(resolvedFillColor, shapes.full),
+            )
+        }
+    }
+}
+
+// ─── Private helpers ────────────────────────────────────────
+
+@Composable
+private fun resolveAnimationSpec(
+    animation: ProgressAnimation,
+    motion: KazMotion,
+): AnimationSpec<Float> =
+    when (animation) {
+        ProgressAnimation.Spring -> motion.springDefault
+        ProgressAnimation.Tween -> motion.tweenDefault
+        ProgressAnimation.None -> snap()
+    }
