@@ -171,7 +171,7 @@ public fun Checkbox(
                         scaleX = checkmarkScale
                         scaleY = checkmarkScale
                     }.drawBehind {
-                        if (checked) {
+                        if (checkmarkScale > 0f) {
                             val strokeWidth = 2.dp.toPx()
                             val w = size.width
                             val h = size.height
