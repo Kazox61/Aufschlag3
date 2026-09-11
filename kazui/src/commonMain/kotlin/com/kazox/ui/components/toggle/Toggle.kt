@@ -189,10 +189,10 @@ public fun Toggle(
                     width = sizeValues.trackWidth,
                     height = sizeValues.trackHeight,
                 ).clip(KazTheme.shapes.full)
-                .background(backgroundColor, KazTheme.shapes.full)
                 .graphicsLayer {
                     alpha = if (isHovered && enabled) motion.hoverAlpha else 1f
-                }.clickable(
+                }.background(backgroundColor, KazTheme.shapes.full)
+                .clickable(
                     interactionSource = interactionSource,
                     indication = null,
                     enabled = enabled,
