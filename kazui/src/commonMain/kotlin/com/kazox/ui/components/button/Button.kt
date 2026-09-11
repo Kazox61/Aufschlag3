@@ -608,14 +608,17 @@ private fun resolveVariantColors(variant: ButtonVariant): ButtonColorValues {
 
         ButtonVariant.Destructive ->
             ButtonColorValues(
-                containerColor = colors.destructive.copy(alpha = 0.1f),
-                contentColor = colors.destructive,
+                containerColor = colors.destructiveTinted,
+                contentColor = colors.onDestructiveTinted,
                 borderColor = Color.Transparent,
-                disabledContainerColor = colors.destructive.copy(alpha = 0.05f),
-                disabledContentColor = colors.destructive.copy(alpha = 0.4f),
+                disabledContainerColor = colors.destructiveTinted.copy(alpha = disabledAlpha),
+                disabledContentColor = colors.onDestructiveTinted.copy(alpha = 0.7f),
                 disabledBorderColor = Color.Transparent,
-                hoverContainerColor = colors.destructiveHover,
-                pressedContainerColor = colors.destructivePressed,
+                // Deepen the tint toward the solid destructive color rather
+                // than jumping to destructiveHover/Pressed: the content stays
+                // onDestructiveTinted, which is unreadable on those fills.
+                hoverContainerColor = lerp(colors.destructiveTinted, colors.destructive, 0.1f),
+                pressedContainerColor = lerp(colors.destructiveTinted, colors.destructive, 0.2f),
             )
 
         ButtonVariant.Link ->
