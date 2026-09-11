@@ -132,8 +132,8 @@ private class StaggeredEnterNode(
                 when (direction) {
                     StaggerDirection.Up -> translationY = px
                     StaggerDirection.Down -> translationY = -px
-                    StaggerDirection.Left -> translationX = px
-                    StaggerDirection.Right -> translationX = -px
+                    StaggerDirection.Left -> translationX = -px
+                    StaggerDirection.Right -> translationX = px
                 }
             }
         }
