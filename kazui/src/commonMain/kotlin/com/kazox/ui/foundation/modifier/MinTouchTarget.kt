@@ -117,8 +117,20 @@ private class MinTouchTargetNode :
         val enforce = isAttached && size.isSpecified && size > 0.dp
 
         val sizePx = if (size.isSpecified) size.roundToPx() else 0
-        val width = if (enforce) maxOf(placeable.width, sizePx) else placeable.width
-        val height = if (enforce) maxOf(placeable.height, sizePx) else placeable.height
+        // Clamp to the incoming max so the size we lay out with matches the
+        // size reported to the parent; otherwise centering drifts.
+        val width =
+            if (enforce) {
+                maxOf(placeable.width, sizePx).coerceAtMost(constraints.maxWidth)
+            } else {
+                placeable.width
+            }
+        val height =
+            if (enforce) {
+                maxOf(placeable.height, sizePx).coerceAtMost(constraints.maxHeight)
+            } else {
+                placeable.height
+            }
 
         return layout(width, height) {
             val centerX = ((width - placeable.width) / 2f).roundToInt()
