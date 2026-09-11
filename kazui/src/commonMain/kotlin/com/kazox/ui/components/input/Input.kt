@@ -389,10 +389,7 @@ public fun Input(
                         ).border(1.dp, borderColor, shape)
                         .background(inputBgColor, shape)
                         .clip(shape)
-                        .padding(
-                            horizontal = spacing.md,
-                            vertical = spacing.sm,
-                        ).then(
+                        .then(
                             if (!enabled) {
                                 Modifier.background(
                                     colors.disabledBackground,
@@ -401,6 +398,9 @@ public fun Input(
                             } else {
                                 Modifier
                             },
+                        ).padding(
+                            horizontal = spacing.md,
+                            vertical = spacing.sm,
                         ),
                 contentAlignment = Alignment.CenterStart,
             ) {

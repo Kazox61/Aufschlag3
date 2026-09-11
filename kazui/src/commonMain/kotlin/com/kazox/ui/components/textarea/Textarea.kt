@@ -310,10 +310,7 @@ public fun Textarea(
                             ).border(1.dp, borderColor, shape)
                             .background(colors.background, shape)
                             .clip(shape)
-                            .padding(
-                                horizontal = spacing.md,
-                                vertical = spacing.sm,
-                            ).then(
+                            .then(
                                 if (!enabled) {
                                     Modifier.background(
                                         colors.muted.copy(
@@ -324,6 +321,9 @@ public fun Textarea(
                                 } else {
                                     Modifier
                                 },
+                            ).padding(
+                                horizontal = spacing.md,
+                                vertical = spacing.sm,
                             ),
                 ) {
                     if (
