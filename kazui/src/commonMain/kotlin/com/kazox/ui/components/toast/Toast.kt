@@ -213,6 +213,8 @@ public fun ToastHost(
     swipeToDismiss: Boolean = true,
     showProgressBar: Boolean = false,
 ) {
+    require(maxVisibleToasts > 0) { "maxVisibleToasts must be positive, was $maxVisibleToasts" }
+
     val spacing = KazTheme.spacing
 
     val isTop =
