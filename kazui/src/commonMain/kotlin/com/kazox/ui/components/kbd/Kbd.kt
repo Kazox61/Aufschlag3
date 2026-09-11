@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -88,7 +89,7 @@ public fun Kbd(
 /**
  * Displays a keyboard shortcut combination as a row of [Kbd] indicators with separators.
  *
- * Merges descendants for accessibility and provides a combined content description.
+ * Replaces the descendant semantics with a single combined content description.
  *
  * ```
  * KbdCombo(keys = listOf("Ctrl", "Shift", "K"))
@@ -112,7 +113,7 @@ public fun KbdCombo(
         "Keyboard shortcut: " + keys.joinToString(separator)
     Row(
         modifier =
-            modifier.semantics(mergeDescendants = true) {
+            modifier.clearAndSetSemantics {
                 contentDescription = comboLabel
             },
         horizontalArrangement = Arrangement.spacedBy(4.dp),
