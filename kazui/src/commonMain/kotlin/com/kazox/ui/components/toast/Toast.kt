@@ -39,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -289,8 +290,8 @@ private fun ToastItem(
     // Track whether the timer is paused (e.g. during hover)
     var isPaused by remember { mutableStateOf(false) }
 
-    // Elapsed time tracking for progress bar
-    var elapsed by remember { mutableStateOf(0L) }
+    // Elapsed time tracking for progress bar (only published to composition when the bar is shown)
+    var elapsed by remember { mutableLongStateOf(0L) }
     val isFiniteDuration = data.duration != TOAST_DURATION_INFINITE
 
     // Track visibility for exit animation
@@ -301,10 +302,13 @@ private fun ToastItem(
     LaunchedEffect(data.id) {
         if (!isFiniteDuration) return@LaunchedEffect
         val tickInterval = 50L
-        while (elapsed < data.duration) {
+        var ticked = 0L
+        while (ticked < data.duration) {
             delay(tickInterval)
             if (!isPaused) {
-                elapsed += tickInterval
+                ticked += tickInterval
+                // Avoid recomposing every 50ms when nothing renders the elapsed value
+                if (showProgressBar) elapsed = ticked
             }
         }
         // Trigger exit animation, then actually remove
