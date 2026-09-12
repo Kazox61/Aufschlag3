@@ -98,7 +98,9 @@ public fun Breadcrumb(
  * @param modifier [Modifier] applied to the breadcrumb row.
  * @param animation [BreadcrumbAnimation] entrance effect (Fade, Slide, or None). Defaults to [BreadcrumbAnimation.None].
  * @param separator Optional custom separator composable. Defaults to a "/" text separator.
- * @param maxVisibleItems Maximum number of items to display before collapsing. Set to 0 to show all. Defaults to 0.
+ * @param maxVisibleItems Maximum number of entries (including the ellipsis) to display before collapsing.
+ *   Set to 0 to show all. Values of 1 or 2 are treated as 3, since the collapsed layout always
+ *   shows the first item, the ellipsis, and the current page. Defaults to 0.
  * @param onEllipsisClick Optional callback invoked when the ellipsis item is clicked.
  */
 @Composable
@@ -315,21 +317,11 @@ private fun resolveVisibleItems(
     items: List<BreadcrumbItemData>,
     maxVisibleItems: Int,
 ): List<VisibleEntry> {
-    val shouldCollapse = maxVisibleItems in 2 until items.size
-
-    val displayItems: List<BreadcrumbItemData> =
-        if (!shouldCollapse) {
-            items
-        } else {
-            // Always show first item + last (maxVisibleItems - 2) items + ellipsis
-            val tailCount = (maxVisibleItems - 2).coerceAtLeast(0)
-            val first = listOf(items.first())
-            val tail =
-                items
-                    .takeLast(tailCount + 1) // +1 for current page
-                    .takeLast(maxVisibleItems - 1)
-            first + tail
-        }
+    // The collapsed layout always renders the first item, the ellipsis, and at least the
+    // current page, so it needs at least MIN_COLLAPSED_VISIBLE_ITEMS slots. Smaller (non-zero)
+    // values are treated as the minimum rather than rendering more entries than requested.
+    val effectiveMax = maxVisibleItems.coerceAtLeast(MIN_COLLAPSED_VISIBLE_ITEMS)
+    val shouldCollapse = maxVisibleItems > 0 && effectiveMax < items.size
 
     val result = mutableListOf<VisibleEntry>()
 
@@ -339,12 +331,10 @@ private fun resolveVisibleItems(
         result.add(VisibleEntry.Separator)
         // Ellipsis
         result.add(VisibleEntry.Ellipsis)
-        // Remaining tail items with separators
-        val tailCount = (maxVisibleItems - 2).coerceAtLeast(0)
-        val tailItems =
-            items
-                .takeLast(tailCount + 1)
-                .takeLast(maxVisibleItems - 1)
+        // Remaining tail items with separators. The first item and the ellipsis each occupy a
+        // slot, so the tail (which always includes the current page) gets the rest.
+        val tailCount = effectiveMax - 2
+        val tailItems = items.takeLast(tailCount)
         tailItems.forEach { item ->
             result.add(VisibleEntry.Separator)
             result.add(VisibleEntry.Item(item))
@@ -360,3 +350,6 @@ private fun resolveVisibleItems(
 
     return result
 }
+
+/** First item + ellipsis + current page is the smallest collapsed layout. */
+private const val MIN_COLLAPSED_VISIBLE_ITEMS = 3
