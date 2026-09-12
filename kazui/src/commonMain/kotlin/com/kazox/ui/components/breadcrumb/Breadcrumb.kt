@@ -93,6 +93,9 @@ public fun Breadcrumb(
  *
  * Renders [BreadcrumbItemData] entries with auto-inserted separators. When [maxVisibleItems]
  * is set, collapses intermediate items into an ellipsis ("...") that can be clicked to expand.
+ * By default, clicking the ellipsis expands the breadcrumb in place so the hidden items become
+ * reachable. Pass [onEllipsisClick] to take over that click instead (e.g. to open a menu of the
+ * hidden items); the breadcrumb then stays collapsed until the caller changes [maxVisibleItems].
  *
  * @param items List of [BreadcrumbItemData] entries to display. The last item is treated as the current page.
  * @param modifier [Modifier] applied to the breadcrumb row.
@@ -101,7 +104,9 @@ public fun Breadcrumb(
  * @param maxVisibleItems Maximum number of entries (including the ellipsis) to display before collapsing.
  *   Set to 0 to show all. Values of 1 or 2 are treated as 3, since the collapsed layout always
  *   shows the first item, the ellipsis, and the current page. Defaults to 0.
- * @param onEllipsisClick Optional callback invoked when the ellipsis item is clicked.
+ * @param onEllipsisClick Optional callback invoked when the ellipsis item is clicked. When null,
+ *   the ellipsis expands the collapsed items in place. When provided, the callback replaces the
+ *   built-in expansion.
  */
 @Composable
 public fun Breadcrumb(
@@ -112,7 +117,11 @@ public fun Breadcrumb(
     maxVisibleItems: Int = 0,
     onEllipsisClick: (() -> Unit)? = null,
 ) {
-    val visibleItems = resolveVisibleItems(items, maxVisibleItems)
+    // Built-in expansion for when the caller doesn't handle the ellipsis click themselves.
+    // Reset whenever the data or the collapse threshold changes.
+    var expanded by remember(items, maxVisibleItems) { mutableStateOf(false) }
+    val visibleItems = resolveVisibleItems(items, if (expanded) 0 else maxVisibleItems)
+    val ellipsisClick = onEllipsisClick ?: { expanded = true }
 
     Breadcrumb(modifier = modifier) {
         visibleItems.forEachIndexed { index, entry ->
@@ -131,7 +140,7 @@ public fun Breadcrumb(
                 is VisibleEntry.Ellipsis -> {
                     AnimatedBreadcrumbItem(
                         text = ELLIPSIS_TEXT,
-                        onClick = onEllipsisClick,
+                        onClick = ellipsisClick,
                         animation = animation,
                         index = animIndex,
                     )
