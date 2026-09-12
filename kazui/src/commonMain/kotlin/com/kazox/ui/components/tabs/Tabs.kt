@@ -223,8 +223,8 @@ public fun Tab(
  * Place this below a [TabList] to display the content for the currently selected tab.
  *
  * ```
- * TabContent(selectedIndex = currentIndex) {
- *     when (currentIndex) {
+ * TabContent(selectedIndex = currentIndex) { index ->
+ *     when (index) {
  *         0 -> Text("Overview panel")
  *         1 -> Text("Settings panel")
  *     }
@@ -233,13 +233,15 @@ public fun Tab(
  *
  * @param selectedIndex Zero-based index of the currently active tab panel. Defaults to 0.
  * @param modifier [Modifier] applied to the content column.
- * @param content Composable content that should render based on the current [selectedIndex].
+ * @param content Composable content rendering the panel for the given index. The index is
+ *   the target state of the transition, so during a switch the outgoing composition still
+ *   receives the previous index rather than [selectedIndex].
  */
 @Composable
 public fun TabContent(
     selectedIndex: Int = 0,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
+    content: @Composable (index: Int) -> Unit,
 ) {
     val motion = KazTheme.motion
 
@@ -259,8 +261,8 @@ public fun TabContent(
                         slideOutVertically(tween(motion.durationFast)) { -it / 8 },
                 )
             },
-        ) {
-            content()
+        ) { index ->
+            content(index)
         }
     }
 }
