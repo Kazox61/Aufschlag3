@@ -1,0 +1,141 @@
+package com.kazox.ui.components.separator
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.kazox.ui.foundation.KazTheme
+
+// ─── Orientation ────────────────────────────────────────────
+
+public enum class SeparatorOrientation {
+    /** Full-width line divider. */
+    Horizontal,
+
+    /** Full-height line divider. */
+    Vertical,
+}
+
+// ─── Style ──────────────────────────────────────────────────
+
+public enum class SeparatorStyle {
+    /** Continuous line. */
+    Solid,
+
+    /** Dashed line with configurable dash/gap lengths. */
+    Dashed,
+
+    /** Dotted line (short dashes with equal gaps). */
+    Dotted,
+}
+
+// ─── Component ──────────────────────────────────────────────
+
+/**
+ * Decorative line divider that separates content sections.
+ *
+ * Semantics are cleared so screen readers skip this purely visual element.
+ * Supports horizontal/vertical orientation and solid/dashed/dotted line styles.
+ *
+ * ```
+ * Separator()
+ *
+ * Separator(
+ *     orientation = SeparatorOrientation.Vertical,
+ *     style = SeparatorStyle.Dashed,
+ *     thickness = 2.dp,
+ * )
+ * ```
+ *
+ * @param modifier [Modifier] applied to the Canvas drawing the line.
+ * @param orientation [SeparatorOrientation] controlling whether the line is horizontal or vertical.
+ * @param color Line color; [Color.Unspecified] defaults to [KazTheme.colors.border].
+ * @param thickness Line width/height in [Dp]; defaults to 1.dp.
+ * @param style [SeparatorStyle] controlling the line pattern (Solid, Dashed, or Dotted).
+ */
+@Composable
+public fun Separator(
+    modifier: Modifier = Modifier,
+    orientation: SeparatorOrientation = SeparatorOrientation.Horizontal,
+    color: Color = Color.Unspecified,
+    thickness: Dp = 1.dp,
+    style: SeparatorStyle = SeparatorStyle.Solid,
+) {
+    val resolvedColor =
+        if (color != Color.Unspecified) color else KazTheme.colors.border
+
+    val sizeModifier =
+        when (orientation) {
+            SeparatorOrientation.Horizontal -> {
+                Modifier
+                    .fillMaxWidth()
+                    .height(thickness)
+            }
+
+            SeparatorOrientation.Vertical -> {
+                Modifier
+                    .fillMaxHeight()
+                    .width(thickness)
+            }
+        }
+
+    // Separators are purely decorative — clear all semantics so
+    // screen readers skip them entirely instead of announcing "empty".
+    Canvas(
+        modifier =
+            modifier
+                .then(sizeModifier)
+                .clearAndSetSemantics { },
+    ) {
+        val pathEffect =
+            when (style) {
+                SeparatorStyle.Solid -> {
+                    null
+                }
+
+                SeparatorStyle.Dashed -> {
+                    PathEffect.dashPathEffect(
+                        floatArrayOf(8f, 4f),
+                    )
+                }
+
+                SeparatorStyle.Dotted -> {
+                    PathEffect.dashPathEffect(
+                        floatArrayOf(2f, 2f),
+                    )
+                }
+            }
+
+        val isHorizontal =
+            orientation == SeparatorOrientation.Horizontal
+        val strokeWidth = thickness.toPx()
+        val center = strokeWidth / 2f
+
+        drawLine(
+            color = resolvedColor,
+            start =
+                if (isHorizontal) {
+                    Offset(0f, center)
+                } else {
+                    Offset(center, 0f)
+                },
+            end =
+                if (isHorizontal) {
+                    Offset(size.width, center)
+                } else {
+                    Offset(center, size.height)
+                },
+            strokeWidth = strokeWidth,
+            pathEffect = pathEffect,
+        )
+    }
+}

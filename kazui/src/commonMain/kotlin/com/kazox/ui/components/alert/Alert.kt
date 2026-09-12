@@ -1,0 +1,311 @@
+package com.kazox.ui.components.alert
+
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import com.kazox.ui.components.text.Text
+import com.kazox.ui.components.text.TextVariant
+import com.kazox.ui.foundation.LocalContentColor
+import com.kazox.ui.foundation.LocalTextStyle
+import com.kazox.ui.foundation.KazTheme
+
+// ─── Variant ────────────────────────────────────────────────
+
+/** Alert visual style. */
+public enum class AlertVariant {
+    /** Bordered card background with foreground text. */
+    Default,
+
+    /** Destructive border tint with destructive text color. */
+    Destructive,
+}
+
+// ─── Animation ──────────────────────────────────────────────
+
+/** Entrance animation when an alert first appears. */
+public enum class AlertAnimation {
+    /** Slide in from the left with a fade. */
+    SlideIn,
+
+    /** Simple fade in. */
+    Fade,
+
+    /** Instant appear, no animation. */
+    None,
+}
+
+// ─── Component ──────────────────────────────────────────────
+
+/**
+ * Alert banner for important messages, supporting default and destructive styles.
+ *
+ * Provides [LocalContentColor] and [LocalTextStyle] to children.
+ * Destructive alerts use [LiveRegionMode.Assertive] so screen readers announce immediately;
+ * default alerts use [LiveRegionMode.Polite].
+ *
+ * ```
+ * Alert {
+ *     AlertTitle("Heads up!")
+ *     AlertDescription("This is an important notice.")
+ * }
+ *
+ * Alert(
+ *     variant = AlertVariant.Destructive,
+ *     icon = { Icon(KazIcons.X, contentDescription = null) },
+ * ) {
+ *     AlertTitle("Error", variant = AlertVariant.Destructive)
+ *     AlertDescription("Something went wrong.", variant = AlertVariant.Destructive)
+ * }
+ * ```
+ *
+ * @param modifier [Modifier] applied to the alert container.
+ * @param variant [AlertVariant] controlling background, border, and foreground colors.
+ * @param animation [AlertAnimation] entrance effect (SlideIn, Fade, or None).
+ * @param icon Optional leading icon composable displayed to the left of content.
+ * @param label Accessibility content description for the alert.
+ * @param content [ColumnScope] content lambda, typically [AlertTitle] and [AlertDescription].
+ */
+@Composable
+public fun Alert(
+    modifier: Modifier = Modifier,
+    variant: AlertVariant = AlertVariant.Default,
+    animation: AlertAnimation = AlertAnimation.None,
+    icon: (@Composable () -> Unit)? = null,
+    label: String = "",
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val resolved = resolveColors(variant)
+    val shape = KazTheme.shapes.md
+
+    val resolvedLiveRegion =
+        when (variant) {
+            AlertVariant.Default -> LiveRegionMode.Polite
+            AlertVariant.Destructive -> LiveRegionMode.Assertive
+        }
+
+    val semanticsModifier =
+        if (label.isNotEmpty()) {
+            Modifier.semantics(mergeDescendants = true) {
+                contentDescription = label
+                liveRegion = resolvedLiveRegion
+            }
+        } else {
+            Modifier.semantics(mergeDescendants = true) {
+                liveRegion = resolvedLiveRegion
+            }
+        }
+
+    val animationModifier = resolveAnimationModifier(animation)
+
+    val baseModifier =
+        modifier
+            .then(semanticsModifier)
+            .then(animationModifier)
+            .border(1.dp, resolved.border, shape)
+            .background(resolved.background, shape)
+            .clip(shape)
+            .padding(KazTheme.spacing.lg)
+
+    CompositionLocalProvider(
+        LocalContentColor provides resolved.foreground,
+        LocalTextStyle provides KazTheme.typography.small,
+    ) {
+        if (icon != null) {
+            Row(
+                modifier = baseModifier,
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        KazTheme.spacing.md,
+                    ),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .padding(top = 2.dp)
+                            .size(16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    icon()
+                }
+                Column(content = content)
+            }
+        } else {
+            Column(
+                modifier = baseModifier,
+                content = content,
+            )
+        }
+    }
+}
+
+// ─── Structured Sections ────────────────────────────────────
+
+/**
+ * Title text within an [Alert], rendered as an H4 heading.
+ *
+ * ```
+ * AlertTitle("Heads up!")
+ * AlertTitle("Error", variant = AlertVariant.Destructive)
+ * ```
+ *
+ * @param text The title string to display.
+ * @param modifier [Modifier] applied to the underlying Text.
+ * @param variant [AlertVariant] controlling the text color (destructive uses red).
+ */
+@Composable
+public fun AlertTitle(
+    text: String,
+    modifier: Modifier = Modifier,
+    variant: AlertVariant = AlertVariant.Default,
+) {
+    val color =
+        when (variant) {
+            AlertVariant.Default -> KazTheme.colors.onBackground
+            AlertVariant.Destructive -> KazTheme.colors.destructive
+        }
+    Text(
+        text = text,
+        modifier = modifier,
+        variant = TextVariant.H4,
+        color = color,
+    )
+}
+
+/**
+ * Description body text within an [Alert], rendered as body paragraph.
+ *
+ * ```
+ * AlertDescription("Please check your input and try again.")
+ * AlertDescription("File could not be saved.", variant = AlertVariant.Destructive)
+ * ```
+ *
+ * @param text The description string to display.
+ * @param modifier [Modifier] applied to the underlying Text.
+ * @param variant [AlertVariant] controlling the text color (destructive uses red, default uses muted).
+ */
+@Composable
+public fun AlertDescription(
+    text: String,
+    modifier: Modifier = Modifier,
+    variant: AlertVariant = AlertVariant.Default,
+) {
+    val color = resolveDescriptionColor(variant)
+
+    Text(
+        text = text,
+        modifier = modifier,
+        variant = TextVariant.P,
+        color = color,
+    )
+}
+
+// ─── Internal: Animation Resolution ─────────────────────────
+
+@Composable
+private fun resolveAnimationModifier(animation: AlertAnimation): Modifier {
+    if (animation == AlertAnimation.None) return Modifier
+
+    val motion = KazTheme.motion
+
+    // Trigger animation on first composition
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { appeared = true }
+
+    return when (animation) {
+        AlertAnimation.SlideIn -> {
+            val offsetX by animateFloatAsState(
+                targetValue = if (appeared) 0f else -24f,
+                animationSpec = motion.springDefault,
+            )
+            val alpha by animateFloatAsState(
+                targetValue = if (appeared) 1f else 0f,
+                animationSpec = tween(motion.durationEnter),
+            )
+            Modifier.graphicsLayer {
+                translationX = offsetX
+                this.alpha = alpha
+            }
+        }
+
+        AlertAnimation.Fade -> {
+            val alpha by animateFloatAsState(
+                targetValue = if (appeared) 1f else 0f,
+                animationSpec = tween(motion.durationEnter),
+            )
+            Modifier.graphicsLayer {
+                this.alpha = alpha
+            }
+        }
+
+        AlertAnimation.None -> {
+            Modifier
+        }
+    }
+}
+
+// ─── Internal: Color Resolution ─────────────────────────────
+
+private data class AlertColors(
+    val background: Color,
+    val border: Color,
+    val foreground: Color,
+)
+
+@Composable
+private fun resolveColors(variant: AlertVariant): AlertColors {
+    val colors = KazTheme.colors
+
+    return when (variant) {
+        AlertVariant.Default -> {
+            AlertColors(
+                background = colors.surface,
+                border = colors.border,
+                foreground = colors.onSurface,
+            )
+        }
+
+        AlertVariant.Destructive -> {
+            AlertColors(
+                background = colors.destructive.copy(alpha = 0.1f),
+                border = colors.destructive.copy(alpha = 0.3f),
+                foreground = colors.destructive,
+            )
+        }
+    }
+}
+
+@Composable
+private fun resolveDescriptionColor(variant: AlertVariant): Color {
+    val colors = KazTheme.colors
+
+    return when (variant) {
+        AlertVariant.Default -> colors.onMuted
+        AlertVariant.Destructive -> colors.destructive
+    }
+}

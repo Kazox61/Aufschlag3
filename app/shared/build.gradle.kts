@@ -21,10 +21,6 @@ kotlin {
     
     jvm()
     
-    js {
-        browser()
-    }
-    
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
@@ -58,6 +54,7 @@ kotlin {
         }
         commonMain.dependencies {
             api(project(":core"))
+            implementation(project(":kazui"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
@@ -69,9 +66,6 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-        }
-        jsMain.dependencies {
-            implementation(libs.wrappers.browser)
         }
     }
 }
