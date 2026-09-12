@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
@@ -50,23 +50,32 @@ public fun Modifier.focusRing(
             val strokePx = width.toPx()
             // Distance from the component edge to the stroke's center line.
             val insetPx = offset.toPx() + strokePx / 2
-            val ringSize = Size(size.width + insetPx * 2, size.height + insetPx * 2)
             val stroke = Stroke(width = strokePx)
 
             when (val outline = shape.createOutline(size, layoutDirection, this)) {
-                // Grow the corner radius with the inset so the ring stays concentric.
+                // Grow each corner radius with the inset so the ring stays concentric,
+                // preserving per-corner (and per-axis) radii of asymmetric shapes.
                 is Outline.Rounded -> {
-                    val cr = outline.roundRect.topLeftCornerRadius.x + insetPx
-                    drawRoundRect(
+                    val rr = outline.roundRect
+                    val expanded = RoundRect(
+                        left = -insetPx,
+                        top = -insetPx,
+                        right = size.width + insetPx,
+                        bottom = size.height + insetPx,
+                        topLeftCornerRadius = rr.topLeftCornerRadius.grow(insetPx),
+                        topRightCornerRadius = rr.topRightCornerRadius.grow(insetPx),
+                        bottomRightCornerRadius = rr.bottomRightCornerRadius.grow(insetPx),
+                        bottomLeftCornerRadius = rr.bottomLeftCornerRadius.grow(insetPx),
+                    )
+                    drawOutline(
+                        outline = Outline.Rounded(expanded),
                         color = ringColor,
-                        topLeft = Offset(-insetPx, -insetPx),
-                        size = ringSize,
-                        cornerRadius = CornerRadius(cr, cr),
                         style = stroke,
                     )
                 }
 
                 else -> {
+                    val ringSize = Size(size.width + insetPx * 2, size.height + insetPx * 2)
                     translate(left = -insetPx, top = -insetPx) {
                         drawOutline(
                             outline = shape.createOutline(ringSize, layoutDirection, this),
@@ -78,3 +87,6 @@ public fun Modifier.focusRing(
             }
         }
 }
+
+private fun CornerRadius.grow(by: Float): CornerRadius =
+    CornerRadius(x + by, y + by)

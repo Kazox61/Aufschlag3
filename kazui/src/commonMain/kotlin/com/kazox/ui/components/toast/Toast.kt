@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -298,6 +299,10 @@ private fun ToastItem(
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
+    // Read through rememberUpdatedState so the timer (keyed only by data.id) sees
+    // parameter changes without restarting.
+    val currentShowProgressBar by rememberUpdatedState(showProgressBar)
+
     // Auto-dismiss timer with pause support
     LaunchedEffect(data.id) {
         if (!isFiniteDuration) return@LaunchedEffect
@@ -308,7 +313,7 @@ private fun ToastItem(
             if (!isPaused) {
                 ticked += tickInterval
                 // Avoid recomposing every 50ms when nothing renders the elapsed value
-                if (showProgressBar) elapsed = ticked
+                if (currentShowProgressBar) elapsed = ticked
             }
         }
         // Trigger exit animation, then actually remove

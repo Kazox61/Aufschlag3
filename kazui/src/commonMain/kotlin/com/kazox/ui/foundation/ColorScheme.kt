@@ -571,7 +571,8 @@ public object KazAccentDark {
  *
  * This replaces [KazColors.primary], [KazColors.onPrimary],
  * and [KazColors.ring] with the values from the given [KazAccentColor],
- * while keeping all other tokens unchanged.
+ * while keeping all other tokens unchanged. [KazColors.primaryHover] and
+ * [KazColors.primaryPressed] are only overridden when the accent specifies them.
  *
  * ### Example
  * ```
@@ -590,8 +591,10 @@ public fun KazColors.withAccent(accent: KazAccentColor): KazColors =
         primary = accent.primary,
         onPrimary = accent.onPrimary,
         ring = accent.ring,
-        primaryHover = accent.primaryHover,
-        primaryPressed = accent.primaryPressed,
+        primaryHover =
+            if (accent.primaryHover != Color.Unspecified) accent.primaryHover else primaryHover,
+        primaryPressed =
+            if (accent.primaryPressed != Color.Unspecified) accent.primaryPressed else primaryPressed,
     )
 
 /**

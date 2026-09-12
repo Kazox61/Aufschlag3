@@ -1,6 +1,6 @@
 # KazUI
 
-A Compose Multiplatform design system (Android / Desktop / iOS), originally derived from
+A Compose Multiplatform design system (Android / Desktop / iOS / Web-wasmJs), originally derived from
 [RikkaUI](https://github.com/rainxch/RikkaUI) and adapted into `com.kazox.ui`.
 
 ## Reusing this in another project
