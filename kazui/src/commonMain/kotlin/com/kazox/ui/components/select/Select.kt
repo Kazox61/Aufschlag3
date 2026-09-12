@@ -2,6 +2,7 @@ package com.kazox.ui.components.select
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,6 +60,7 @@ import com.kazox.ui.components.icon.KazIcons
 import com.kazox.ui.components.text.Text
 import com.kazox.ui.components.text.TextVariant
 import com.kazox.ui.foundation.KazTheme
+import kotlinx.coroutines.delay
 
 // ─── Data ───────────────────────────────────────────────────
 
@@ -124,6 +127,10 @@ public fun Select(
     val motion = KazTheme.motion
 
     var expanded by remember { mutableStateOf(false) }
+    var showPopup by remember { mutableStateOf(false) }
+    LaunchedEffect(expanded) {
+        if (expanded) showPopup = true
+    }
     var triggerWidth by remember { mutableStateOf(0) }
     val density = LocalDensity.current
 
@@ -201,7 +208,7 @@ public fun Select(
         }
 
         // ─── Dropdown popup ──────────────────────────
-        if (expanded) {
+        if (showPopup) {
             val triggerWidthDp =
                 with(density) { triggerWidth.toDp() }
 
@@ -211,6 +218,7 @@ public fun Select(
                 DropdownPositionProvider,
             ) {
                 SelectDropdownContent(
+                    visible = expanded,
                     animation = animation,
                     triggerWidthDp = triggerWidthDp,
                     maxHeight = maxHeight,
@@ -219,6 +227,13 @@ public fun Select(
                     onValueChange = onValueChange,
                     onDismiss = { expanded = false },
                 )
+
+                if (!expanded) {
+                    LaunchedEffect(Unit) {
+                        if (animation != PopupAnimation.None) delay(motion.durationDefault.toLong() + 50L)
+                        showPopup = false
+                    }
+                }
             }
         }
     }
@@ -228,6 +243,7 @@ public fun Select(
 
 @Composable
 private fun SelectDropdownContent(
+    visible: Boolean,
     animation: PopupAnimation,
     triggerWidthDp: Dp,
     maxHeight: Dp,
@@ -240,6 +256,12 @@ private fun SelectDropdownContent(
     val shapes = KazTheme.shapes
     val spacing = KazTheme.spacing
     val motion = KazTheme.motion
+
+    // Start hidden so the enter transition plays on first composition;
+    // Popup is mounted with `visible` already true.
+    val visibleState =
+        remember { MutableTransitionState(false) }
+    visibleState.targetState = visible
 
     val listContent: @Composable () -> Unit = {
         LazyColumn(
@@ -274,12 +296,12 @@ private fun SelectDropdownContent(
 
     when (animation) {
         PopupAnimation.None -> {
-            listContent()
+            if (visible) listContent()
         }
 
         PopupAnimation.Fade -> {
             AnimatedVisibility(
-                visible = true,
+                visibleState = visibleState,
                 enter =
                     fadeIn(
                         animationSpec =
@@ -301,7 +323,7 @@ private fun SelectDropdownContent(
 
         PopupAnimation.FadeExpand -> {
             AnimatedVisibility(
-                visible = true,
+                visibleState = visibleState,
                 enter =
                     fadeIn(
                         animationSpec =
