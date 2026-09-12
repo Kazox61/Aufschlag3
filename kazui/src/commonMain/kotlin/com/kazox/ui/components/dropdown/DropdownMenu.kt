@@ -229,7 +229,7 @@ public fun DropdownMenu(
 
                 if (!expanded) {
                     LaunchedEffect(Unit) {
-                        delay(motion.durationDefault.toLong() + 50L)
+                        if (animation != PopupAnimation.None) delay(motion.durationDefault.toLong() + 50L)
                         showPopup = false
                     }
                 }

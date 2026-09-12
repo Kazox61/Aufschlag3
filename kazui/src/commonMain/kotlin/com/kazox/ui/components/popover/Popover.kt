@@ -204,7 +204,7 @@ public fun Popover(
 
                 if (!expanded) {
                     LaunchedEffect(Unit) {
-                        delay(motion.durationDefault.toLong() + 50L)
+                        if (animation != PopoverAnimation.None) delay(motion.durationDefault.toLong() + 50L)
                         showPopup = false
                     }
                 }
