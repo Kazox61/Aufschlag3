@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -223,7 +224,17 @@ public fun Slider(
                             current = clampedValue,
                             range = 0f..1f,
                         )
-                    if (!enabled) {
+                    if (enabled) {
+                        setProgress { target ->
+                            val newValue = target.coerceIn(0f, 1f)
+                            if (newValue == clampedValue) {
+                                false
+                            } else {
+                                currentOnValueChange(newValue)
+                                true
+                            }
+                        }
+                    } else {
                         disabled()
                     }
                 },
