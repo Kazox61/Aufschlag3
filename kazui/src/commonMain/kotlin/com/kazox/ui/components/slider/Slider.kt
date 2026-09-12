@@ -114,6 +114,7 @@ public fun Slider(
     val density = LocalDensity.current
 
     val thumbSizePx = with(density) { thumbSize.toPx() }
+    val thumbRadiusPx = thumbSizePx / 2f
 
     val resolvedTrackColor =
         if (trackColor != Color.Unspecified) trackColor else colors.muted
@@ -182,11 +183,11 @@ public fun Slider(
                         Modifier
                             .pointerInput(Unit) {
                                 detectTapGestures { offset ->
-                                    val width =
-                                        trackWidthPx.intValue.toFloat()
-                                    if (width > 0f) {
+                                    val travel =
+                                        trackWidthPx.intValue - thumbSizePx
+                                    if (travel > 0f) {
                                         val newValue =
-                                            (offset.x / width)
+                                            ((offset.x - thumbRadiusPx) / travel)
                                                 .coerceIn(0f, 1f)
                                         currentOnValueChange(newValue)
                                     }
@@ -194,11 +195,11 @@ public fun Slider(
                             }.pointerInput(Unit) {
                                 detectHorizontalDragGestures { change, _ ->
                                     change.consume()
-                                    val width =
-                                        trackWidthPx.intValue.toFloat()
-                                    if (width > 0f) {
+                                    val travel =
+                                        trackWidthPx.intValue - thumbSizePx
+                                    if (travel > 0f) {
                                         val newValue =
-                                            (change.position.x / width)
+                                            ((change.position.x - thumbRadiusPx) / travel)
                                                 .coerceIn(0f, 1f)
                                         currentOnValueChange(newValue)
                                     }
