@@ -82,10 +82,12 @@ public fun IconButton(
         loading = loading,
         label = contentDescription,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            size = iconSize,
-        )
+        if (!loading) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                size = iconSize,
+            )
+        }
     }
 }
