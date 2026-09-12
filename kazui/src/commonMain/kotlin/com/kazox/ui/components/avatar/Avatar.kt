@@ -3,6 +3,7 @@ package com.kazox.ui.components.avatar
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -13,7 +14,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
@@ -159,34 +159,37 @@ public fun Avatar(
                     alpha = animAlpha
                     scaleX = animScale
                     scaleY = animScale
-                }.background(KazTheme.colors.muted, shape)
-                .clip(shape)
-                .then(
-                    if (statusColor != null) {
-                        Modifier.drawBehind {
-                            val dotRadius = this.size.width * 0.15f
-                            val dotOffset = dotRadius * 0.3f
-                            drawCircle(
-                                color = statusColor,
-                                radius = dotRadius,
-                                center =
-                                    androidx.compose.ui.geometry.Offset(
-                                        x = this.size.width - dotOffset,
-                                        y = this.size.height - dotOffset,
-                                    ),
-                            )
-                        }
-                    } else {
-                        Modifier
-                    },
-                ),
-        contentAlignment = Alignment.Center,
+                },
     ) {
-        Text(
-            text = fallback,
-            variant = resolved.textVariant,
-            color = KazTheme.colors.onMuted,
-        )
+        Box(
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .background(KazTheme.colors.muted, shape)
+                    .clip(shape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = fallback,
+                variant = resolved.textVariant,
+                color = KazTheme.colors.onMuted,
+            )
+        }
+
+        // Status dot is a separate overlay above the clipped circle so the
+        // full dot stays visible instead of being cut by the avatar clip.
+        if (statusColor != null) {
+            val dotRadius = resolved.diameter * 0.15f
+            val dotOffset = dotRadius * 0.3f
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = dotRadius - dotOffset, y = dotRadius - dotOffset)
+                        .size(dotRadius * 2)
+                        .background(statusColor, shape),
+            )
+        }
     }
 }
 
