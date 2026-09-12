@@ -383,11 +383,8 @@ private fun ToastItem(
                                 }
                             },
                             onHorizontalDrag = { _, dragAmount ->
-                                swipeScope.launch {
-                                    swipeOffset.snapTo(
-                                        swipeOffset.value + dragAmount,
-                                    )
-                                }
+                                val target = swipeOffset.value + dragAmount
+                                swipeScope.launch { swipeOffset.snapTo(target) }
                             },
                         )
                     }
