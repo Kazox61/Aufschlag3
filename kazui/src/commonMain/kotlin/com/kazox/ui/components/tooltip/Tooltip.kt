@@ -17,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -26,15 +25,16 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import kotlinx.coroutines.delay
+import com.kazox.ui.components.AnchoredPopupPositionProvider
+import com.kazox.ui.components.PopupAlign
+import com.kazox.ui.components.PopupSide
 import com.kazox.ui.foundation.KazTheme
 
 // ─── Animation ─────────────────────────────────────────────
@@ -137,19 +137,15 @@ public fun Tooltip(
             },
     )
 
-    // ─── Content measurement for popup placement ────────
-    var contentSize by remember { mutableStateOf(IntSize.Zero) }
-    val density = LocalDensity.current
-
     val showPopup =
         when (animation) {
             TooltipAnimation.None -> isVisible
             else -> isVisible || alpha > 0f
         }
 
-    // ─── Resolve popup alignment and offset ─────────────
-    val popupAlignment = resolveAlignment(placement)
-    val popupOffset = resolveOffset(placement, density)
+    // ─── Resolve popup position ─────────────────────────
+    val gap = with(LocalDensity.current) { KazTheme.spacing.xs.roundToPx() }
+    val positionProvider = remember(placement, gap) { resolvePositionProvider(placement, gap) }
 
     Box(
         modifier =
@@ -164,19 +160,13 @@ public fun Tooltip(
                         false
                     }
                 }.hoverable(interactionSource)
-                .focusable(interactionSource = interactionSource)
-                .onGloballyPositioned { coordinates ->
-                    contentSize = coordinates.size
-                },
+                .focusable(interactionSource = interactionSource),
     ) {
         content()
 
         // ─── Tooltip popup ──────────────────────────────
         if (showPopup) {
-            Popup(
-                alignment = popupAlignment,
-                offset = popupOffset,
-            ) {
+            Popup(popupPositionProvider = positionProvider) {
                 Box(
                     modifier =
                         Modifier
@@ -209,27 +199,16 @@ public fun Tooltip(
 
 // ─── Private helpers ────────────────────────────────────────
 
-private fun resolveAlignment(placement: TooltipPlacement): Alignment =
-    when (placement) {
-        TooltipPlacement.Top -> Alignment.TopCenter
-        TooltipPlacement.Bottom -> Alignment.BottomCenter
-        TooltipPlacement.Start -> Alignment.CenterStart
-        TooltipPlacement.End -> Alignment.CenterEnd
-    }
-
-@Composable
-private fun resolveOffset(
+private fun resolvePositionProvider(
     placement: TooltipPlacement,
-    density: androidx.compose.ui.unit.Density,
-): IntOffset {
-    val gap =
-        with(density) {
-            KazTheme.spacing.xs.roundToPx()
+    gap: Int,
+): PopupPositionProvider {
+    val side =
+        when (placement) {
+            TooltipPlacement.Top -> PopupSide.Top
+            TooltipPlacement.Bottom -> PopupSide.Bottom
+            TooltipPlacement.Start -> PopupSide.Start
+            TooltipPlacement.End -> PopupSide.End
         }
-    return when (placement) {
-        TooltipPlacement.Top -> IntOffset(x = 0, y = -gap)
-        TooltipPlacement.Bottom -> IntOffset(x = 0, y = gap)
-        TooltipPlacement.Start -> IntOffset(x = -gap, y = 0)
-        TooltipPlacement.End -> IntOffset(x = gap, y = 0)
-    }
+    return AnchoredPopupPositionProvider(side = side, align = PopupAlign.Center, gap = gap)
 }

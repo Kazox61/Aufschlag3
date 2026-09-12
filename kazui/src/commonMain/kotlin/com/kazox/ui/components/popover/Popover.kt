@@ -30,12 +30,17 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import kotlinx.coroutines.delay
+import com.kazox.ui.components.AnchoredPopupPositionProvider
+import com.kazox.ui.components.PopupAlign
+import com.kazox.ui.components.PopupSide
 import com.kazox.ui.foundation.LocalContentColor
 import com.kazox.ui.foundation.LocalTextStyle
 import com.kazox.ui.foundation.KazTheme
@@ -101,7 +106,8 @@ public fun Popover(
     val motion = KazTheme.motion
     val focusRequester = remember { FocusRequester() }
 
-    val popupAlignment = resolvePlacement(placement)
+    val gap = with(LocalDensity.current) { KazTheme.spacing.xs.roundToPx() }
+    val positionProvider = remember(placement, gap) { resolvePositionProvider(placement, gap) }
 
     var showPopup by remember { mutableStateOf(false) }
     LaunchedEffect(expanded) {
@@ -113,7 +119,7 @@ public fun Popover(
 
         if (showPopup) {
             Popup(
-                alignment = popupAlignment,
+                popupPositionProvider = positionProvider,
                 onDismissRequest = onDismiss,
             ) {
                 when (animation) {
@@ -264,15 +270,30 @@ private fun PopoverCard(
     }
 }
 
-private fun resolvePlacement(placement: PopoverPlacement): Alignment =
-    when (placement) {
-        PopoverPlacement.BottomStart -> Alignment.BottomStart
-        PopoverPlacement.BottomEnd -> Alignment.BottomEnd
-        PopoverPlacement.TopStart -> Alignment.TopStart
-        PopoverPlacement.TopEnd -> Alignment.TopEnd
-        PopoverPlacement.BottomCenter -> Alignment.BottomCenter
-        PopoverPlacement.TopCenter -> Alignment.TopCenter
-    }
+private fun resolvePositionProvider(
+    placement: PopoverPlacement,
+    gap: Int,
+): PopupPositionProvider {
+    val side =
+        when (placement) {
+            PopoverPlacement.BottomStart,
+            PopoverPlacement.BottomEnd,
+            PopoverPlacement.BottomCenter,
+            -> PopupSide.Bottom
+
+            PopoverPlacement.TopStart,
+            PopoverPlacement.TopEnd,
+            PopoverPlacement.TopCenter,
+            -> PopupSide.Top
+        }
+    val align =
+        when (placement) {
+            PopoverPlacement.BottomStart, PopoverPlacement.TopStart -> PopupAlign.Start
+            PopoverPlacement.BottomEnd, PopoverPlacement.TopEnd -> PopupAlign.End
+            PopoverPlacement.BottomCenter, PopoverPlacement.TopCenter -> PopupAlign.Center
+        }
+    return AnchoredPopupPositionProvider(side = side, align = align, gap = gap)
+}
 
 private fun resolveExpandFrom(placement: PopoverPlacement): Alignment.Vertical =
     when (placement) {

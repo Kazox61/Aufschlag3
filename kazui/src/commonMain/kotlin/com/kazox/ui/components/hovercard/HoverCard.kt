@@ -20,7 +20,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -30,12 +29,17 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import kotlinx.coroutines.delay
+import com.kazox.ui.components.AnchoredPopupPositionProvider
+import com.kazox.ui.components.PopupAlign
+import com.kazox.ui.components.PopupSide
 import com.kazox.ui.foundation.LocalContentColor
 import com.kazox.ui.foundation.LocalTextStyle
 import com.kazox.ui.foundation.KazTheme
@@ -112,7 +116,8 @@ public fun HoverCard(
     val spacing = KazTheme.spacing
     val motion = KazTheme.motion
 
-    val popupAlignment = resolvePlacement(placement)
+    val gap = with(LocalDensity.current) { spacing.xs.roundToPx() }
+    val positionProvider = remember(placement, gap) { resolvePositionProvider(placement, gap) }
 
     // ─── Show/hide with delays ───────────────────────────
     val isAnyActive = isTriggerHovered || isTriggerFocused || isCardHovered
@@ -188,7 +193,7 @@ public fun HoverCard(
 
         if (showPopup) {
             Popup(
-                alignment = popupAlignment,
+                popupPositionProvider = positionProvider,
                 onDismissRequest = { isVisible = false },
             ) {
                 Box(
@@ -227,10 +232,19 @@ public fun HoverCard(
 
 // ─── Private helpers ────────────────────────────────────────
 
-private fun resolvePlacement(placement: HoverCardPlacement): Alignment =
-    when (placement) {
-        HoverCardPlacement.BottomStart -> Alignment.BottomStart
-        HoverCardPlacement.BottomEnd -> Alignment.BottomEnd
-        HoverCardPlacement.TopStart -> Alignment.TopStart
-        HoverCardPlacement.TopEnd -> Alignment.TopEnd
-    }
+private fun resolvePositionProvider(
+    placement: HoverCardPlacement,
+    gap: Int,
+): PopupPositionProvider {
+    val side =
+        when (placement) {
+            HoverCardPlacement.BottomStart, HoverCardPlacement.BottomEnd -> PopupSide.Bottom
+            HoverCardPlacement.TopStart, HoverCardPlacement.TopEnd -> PopupSide.Top
+        }
+    val align =
+        when (placement) {
+            HoverCardPlacement.BottomStart, HoverCardPlacement.TopStart -> PopupAlign.Start
+            HoverCardPlacement.BottomEnd, HoverCardPlacement.TopEnd -> PopupAlign.End
+        }
+    return AnchoredPopupPositionProvider(side = side, align = align, gap = gap)
+}

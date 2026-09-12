@@ -47,14 +47,11 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
+import com.kazox.ui.components.AnchoredPopupPositionProvider
 import com.kazox.ui.components.PopupAnimation
+import com.kazox.ui.components.PopupSide
 import com.kazox.ui.components.icon.Icon
 import com.kazox.ui.components.icon.KazIcons
 import com.kazox.ui.components.text.Text
@@ -133,6 +130,9 @@ public fun Select(
     }
     var triggerWidth by remember { mutableStateOf(0) }
     val density = LocalDensity.current
+    val gap = with(density) { KazTheme.spacing.xs.roundToPx() }
+    val positionProvider =
+        remember(gap) { AnchoredPopupPositionProvider(side = PopupSide.Bottom, gap = gap) }
 
     val selectedOption = options.find { it.value == selectedValue }
     val displayText = selectedOption?.label ?: placeholder
@@ -214,8 +214,7 @@ public fun Select(
 
             Popup(
                 onDismissRequest = { expanded = false },
-                popupPositionProvider =
-                DropdownPositionProvider,
+                popupPositionProvider = positionProvider,
             ) {
                 SelectDropdownContent(
                     visible = expanded,
@@ -429,37 +428,5 @@ private fun SelectItem(
                 },
             maxLines = 1,
         )
-    }
-}
-
-// ─── Internal: Position Provider ────────────────────────────
-
-// Positions popup below the trigger with a 4px gap, flipping above when it
-// would overflow the bottom edge, and clamps the result to the window bounds.
-private object DropdownPositionProvider : PopupPositionProvider {
-    private const val GAP = 4
-
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset {
-        // Align to the anchor's start edge per layout direction
-        val preferredX =
-            if (layoutDirection == LayoutDirection.Ltr) {
-                anchorBounds.left
-            } else {
-                anchorBounds.right - popupContentSize.width
-            }
-        val x = preferredX.coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
-
-        val below = anchorBounds.bottom + GAP
-        val above = anchorBounds.top - GAP - popupContentSize.height
-        val fitsBelow = below + popupContentSize.height <= windowSize.height
-        val preferredY = if (fitsBelow || above < 0) below else above
-        val y = preferredY.coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
-
-        return IntOffset(x = x, y = y)
     }
 }

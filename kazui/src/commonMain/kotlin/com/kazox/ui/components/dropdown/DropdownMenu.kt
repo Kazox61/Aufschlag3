@@ -44,6 +44,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -57,7 +58,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import kotlinx.coroutines.delay
+import com.kazox.ui.components.AnchoredPopupPositionProvider
 import com.kazox.ui.components.PopupAnimation
+import com.kazox.ui.components.PopupSide
 import com.kazox.ui.foundation.KazTheme
 
 // ─── Component ──────────────────────────────────────────────
@@ -100,6 +103,10 @@ public fun DropdownMenu(
 
     val focusRequester = remember { FocusRequester() }
 
+    val gap = with(LocalDensity.current) { spacing.xs.roundToPx() }
+    val positionProvider =
+        remember(gap) { AnchoredPopupPositionProvider(side = PopupSide.Bottom, gap = gap) }
+
     var showPopup by remember { mutableStateOf(false) }
     LaunchedEffect(expanded) {
         if (expanded) showPopup = true
@@ -117,7 +124,7 @@ public fun DropdownMenu(
 
         if (showPopup) {
             Popup(
-                alignment = Alignment.BottomStart,
+                popupPositionProvider = positionProvider,
                 onDismissRequest = onDismiss,
             ) {
                 LaunchedEffect(Unit) {
