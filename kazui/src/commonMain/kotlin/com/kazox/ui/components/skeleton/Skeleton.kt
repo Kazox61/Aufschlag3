@@ -91,8 +91,8 @@ public fun Skeleton(
                 modifier =
                     modifier
                         .clip(shape)
-                        .background(mutedColor)
                         .graphicsLayer { this.alpha = alpha }
+                        .background(mutedColor)
                         .clearAndSetSemantics { contentDescription = label },
             )
         }
