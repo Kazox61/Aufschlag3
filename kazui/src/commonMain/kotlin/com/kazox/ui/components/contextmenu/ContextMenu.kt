@@ -47,6 +47,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -58,9 +60,15 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import com.kazox.ui.components.PopupAnimation
 import com.kazox.ui.foundation.KazTheme
 
@@ -69,8 +77,10 @@ import com.kazox.ui.foundation.KazTheme
 /**
  * A right-click / long-press triggered context menu.
  *
- * Wraps [content] and shows a popup menu on long-press (touch) or F10 key (keyboard).
- * Manages its own expanded state internally. Press Escape or click outside to dismiss.
+ * Wraps [content] and shows a popup menu on right-click (mouse), long-press (touch) or
+ * F10 key (keyboard). Pointer-triggered menus open at the pointer position; keyboard-triggered
+ * menus open at the top-start corner of [content]. Manages its own expanded state internally.
+ * Press Escape or click outside to dismiss.
  *
  * @param menuContent Menu items rendered inside the context menu panel column.
  * @param modifier [Modifier] applied to the outer container.
@@ -79,7 +89,7 @@ import com.kazox.ui.foundation.KazTheme
  * @param minWidth Minimum width of the menu panel. Defaults to 200.dp.
  * @param maxWidth Maximum width of the menu panel. Defaults to 280.dp.
  * @param maxHeight Maximum height of the menu panel before scrolling. Defaults to 300.dp.
- * @param content Composable content that triggers the context menu on long-press.
+ * @param content Composable content that triggers the context menu on right-click or long-press.
  */
 @Composable
 public fun ContextMenu(
@@ -93,6 +103,8 @@ public fun ContextMenu(
     content: @Composable () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    // Pixel offset of the opening pointer event relative to the trigger's top-start corner.
+    var menuOffset by remember { mutableStateOf(IntOffset.Zero) }
     val motion = KazTheme.motion
     val focusRequester = remember { FocusRequester() }
 
@@ -107,16 +119,35 @@ public fun ContextMenu(
                 Modifier
                     .semantics {
                         stateDescription = if (expanded) "Expanded" else "Collapsed"
-                    }.onKeyEvent {
+                    }.focusable()
+                    .onKeyEvent {
                         if (it.key == Key.F10 && it.type == KeyEventType.KeyDown) {
+                            menuOffset = IntOffset.Zero
                             expanded = true
                             true
                         } else {
                             false
                         }
                     }.pointerInput(Unit) {
+                        // Right-click (mouse): open at the press position.
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) {
+                                    val position = event.changes.first().position
+                                    menuOffset = IntOffset(position.x.roundToInt(), position.y.roundToInt())
+                                    expanded = true
+                                    event.changes.forEach { it.consume() }
+                                }
+                            }
+                        }
+                    }.pointerInput(Unit) {
+                        // Long-press (touch): open at the press position.
                         detectTapGestures(
-                            onLongPress = { expanded = true },
+                            onLongPress = { position ->
+                                menuOffset = IntOffset(position.x.roundToInt(), position.y.roundToInt())
+                                expanded = true
+                            },
                         )
                     },
         ) {
@@ -125,7 +156,7 @@ public fun ContextMenu(
 
         if (showPopup) {
             Popup(
-                alignment = Alignment.TopStart,
+                popupPositionProvider = remember(menuOffset) { ContextMenuPositionProvider(menuOffset) },
                 onDismissRequest = { expanded = false },
             ) {
                 LaunchedEffect(Unit) {
@@ -225,6 +256,29 @@ public fun ControlledContextMenu(
                 }
             }
         }
+    }
+}
+
+// ─── Internal: Position Provider ────────────────────────────
+
+// Positions the popup at [offset] relative to the anchor's top-start corner
+// and clamps the result to the window bounds so the menu never opens off-screen.
+private class ContextMenuPositionProvider(
+    private val offset: IntOffset,
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val x =
+            (anchorBounds.left + offset.x)
+                .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+        val y =
+            (anchorBounds.top + offset.y)
+                .coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
+        return IntOffset(x = x, y = y)
     }
 }
 
