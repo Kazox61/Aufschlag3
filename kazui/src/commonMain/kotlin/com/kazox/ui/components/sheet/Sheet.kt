@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -36,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -358,20 +360,20 @@ private fun resolvePanelShape(side: SheetSide): Shape {
 
     return when (side) {
         SheetSide.Left -> {
-            RoundedCornerShape(
-                topStart = 0.dp,
-                topEnd = radius,
-                bottomEnd = radius,
-                bottomStart = 0.dp,
+            AbsoluteRoundedCornerShape(
+                topLeft = 0.dp,
+                topRight = radius,
+                bottomRight = radius,
+                bottomLeft = 0.dp,
             )
         }
 
         SheetSide.Right -> {
-            RoundedCornerShape(
-                topStart = radius,
-                topEnd = 0.dp,
-                bottomEnd = 0.dp,
-                bottomStart = radius,
+            AbsoluteRoundedCornerShape(
+                topLeft = radius,
+                topRight = 0.dp,
+                bottomRight = 0.dp,
+                bottomLeft = radius,
             )
         }
 
@@ -397,8 +399,8 @@ private fun resolvePanelShape(side: SheetSide): Shape {
 
 private fun resolvePanelAlignment(side: SheetSide): Alignment =
     when (side) {
-        SheetSide.Left -> Alignment.CenterStart
-        SheetSide.Right -> Alignment.CenterEnd
+        SheetSide.Left -> AbsoluteAlignment.CenterLeft
+        SheetSide.Right -> AbsoluteAlignment.CenterRight
         SheetSide.Top -> Alignment.TopCenter
         SheetSide.Bottom -> Alignment.BottomCenter
     }
