@@ -323,7 +323,7 @@ public fun SheetFooter(
     content: @Composable () -> Unit,
 ) {
     Row(
-        modifier = modifier.padding(top = KazTheme.spacing.sm),
+        modifier = modifier.fillMaxWidth().padding(top = KazTheme.spacing.sm),
         horizontalArrangement =
             Arrangement.spacedBy(
                 KazTheme.spacing.sm,
