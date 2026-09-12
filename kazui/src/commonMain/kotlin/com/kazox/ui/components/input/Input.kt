@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalDensity
@@ -116,6 +117,12 @@ public data class InputColorValues(
     public val placeholder: Color,
     public val ring: Color,
 ) {
+    /**
+     * Resolves the border color for the given state.
+     *
+     * Precedence: disabled → error → focused → normal. When [isError] is true but
+     * [errorBorder] is [Color.Unspecified], the focused/normal border is used instead.
+     */
     public fun borderColor(
         focused: Boolean,
         enabled: Boolean,
@@ -124,7 +131,7 @@ public data class InputColorValues(
     ): Color =
         when {
             !enabled -> disabledBorder
-            isError -> errorBorder
+            isError && errorBorder.isSpecified -> errorBorder
             focused -> focusedBorder
             else -> border
         }
