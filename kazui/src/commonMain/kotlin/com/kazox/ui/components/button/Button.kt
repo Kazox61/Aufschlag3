@@ -529,7 +529,7 @@ public fun Button(
 
         val textStyle =
             if (variant == ButtonVariant.Link) {
-                TextStyle(textDecoration = TextDecoration.None)
+                TextStyle(textDecoration = TextDecoration.Underline)
             } else {
                 TextStyle.Default
             }
