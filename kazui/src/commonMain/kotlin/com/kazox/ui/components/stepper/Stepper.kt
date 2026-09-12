@@ -175,15 +175,17 @@ public fun Stepper(
     val containerColors = resolveContainerColors(variant)
 
     val currentValue = value.coerceIn(min, max)
-    val canDecrement = currentValue - step >= min
-    val canIncrement = currentValue + step <= max
+    // Long arithmetic so values near Int.MIN_VALUE/MAX_VALUE don't wrap.
+    val canDecrement = currentValue.toLong() - step >= min
+    val canIncrement = currentValue.toLong() + step <= max
 
     // ─── Slide direction for the value change animation ─
     var slideDirection by remember { mutableIntStateOf(1) }
     val stepBy: (Int) -> Unit =
         { direction ->
             slideDirection = direction
-            onValueChange((currentValue + direction * step).coerceIn(min, max))
+            val next = currentValue.toLong() + direction * step.toLong()
+            onValueChange(next.coerceIn(min.toLong(), max.toLong()).toInt())
         }
 
     // ─── Container colors (animated, same tween as Button) ──
