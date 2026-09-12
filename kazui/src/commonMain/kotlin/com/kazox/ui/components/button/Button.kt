@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -23,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -34,6 +37,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kazox.ui.components.spinner.Spinner
@@ -650,59 +654,54 @@ private fun resolveVariantColors(variant: ButtonVariant): ButtonColorValues {
 /**
  * Linearly interpolates between two [Shape]s.
  *
- * If both are [androidx.compose.foundation.shape.RoundedCornerShape],
- * this interpolates corner radii for a smooth morph. Otherwise falls
- * back to a discrete swap at the midpoint.
+ * If both are [RoundedCornerShape], this interpolates corner sizes for
+ * a smooth morph. Percent-based corners keep their proportional
+ * behavior because interpolation happens at resolution time, against
+ * the real shape size and density. Otherwise falls back to a discrete
+ * swap at the midpoint.
  */
-@Composable
 private fun lerpShape(
     start: Shape,
     end: Shape,
-    @Suppress("UNUSED_PARAMETER") fraction: Float,
+    fraction: Float,
 ): Shape {
     if (fraction <= 0f) return start
     if (fraction >= 1f) return end
 
     // Both shapes must be RoundedCornerShape for smooth interpolation.
     val startRounded =
-        start as? androidx.compose.foundation.shape.RoundedCornerShape
+        start as? RoundedCornerShape
             ?: return if (fraction < 0.5f) start else end
     val endRounded =
-        end as? androidx.compose.foundation.shape.RoundedCornerShape
+        end as? RoundedCornerShape
             ?: return if (fraction < 0.5f) start else end
 
-    // Interpolate corner percentages.
-    val topStart =
-        lerp(
-            startRounded.topStart.toPx(100f),
-            endRounded.topStart.toPx(100f),
-            fraction,
-        )
-    val topEnd =
-        lerp(
-            startRounded.topEnd.toPx(100f),
-            endRounded.topEnd.toPx(100f),
-            fraction,
-        )
-    val bottomEnd =
-        lerp(
-            startRounded.bottomEnd.toPx(100f),
-            endRounded.bottomEnd.toPx(100f),
-            fraction,
-        )
-    val bottomStart =
-        lerp(
-            startRounded.bottomStart.toPx(100f),
-            endRounded.bottomStart.toPx(100f),
-            fraction,
-        )
-
-    return androidx.compose.foundation.shape.RoundedCornerShape(
-        topStart = topStart.dp,
-        topEnd = topEnd.dp,
-        bottomEnd = bottomEnd.dp,
-        bottomStart = bottomStart.dp,
+    return RoundedCornerShape(
+        topStart = LerpCornerSize(startRounded.topStart, endRounded.topStart, fraction),
+        topEnd = LerpCornerSize(startRounded.topEnd, endRounded.topEnd, fraction),
+        bottomEnd = LerpCornerSize(startRounded.bottomEnd, endRounded.bottomEnd, fraction),
+        bottomStart = LerpCornerSize(startRounded.bottomStart, endRounded.bottomStart, fraction),
     )
+}
+
+/**
+ * A [CornerSize] that resolves [start] and [end] against the actual
+ * shape size and density, then interpolates the resulting pixel values.
+ */
+private data class LerpCornerSize(
+    private val start: CornerSize,
+    private val end: CornerSize,
+    private val fraction: Float,
+) : CornerSize {
+    override fun toPx(
+        shapeSize: Size,
+        density: Density,
+    ): Float =
+        lerp(
+            start.toPx(shapeSize, density),
+            end.toPx(shapeSize, density),
+            fraction,
+        )
 }
 
 private fun lerp(
@@ -710,25 +709,3 @@ private fun lerp(
     stop: Float,
     fraction: Float,
 ): Float = start + (stop - start) * fraction
-
-/**
- * Resolves a [androidx.compose.foundation.shape.CornerSize] to pixels
- * for a given reference size. This is a best-effort extraction —
- * percent-based corners are resolved against [referenceSize].
- */
-private fun androidx.compose.foundation.shape.CornerSize.toPx(referenceSize: Float): Float {
-    // CornerSize doesn't expose its value directly, but toPx() needs a
-    // Size and Density. We use a simplified approach: resolve using a
-    // square reference and extract the pixel value.
-    return try {
-        val size =
-            androidx.compose.ui.geometry
-                .Size(referenceSize, referenceSize)
-        val density =
-            androidx.compose.ui.unit
-                .Density(1f)
-        toPx(size, density)
-    } catch (_: Exception) {
-        0f
-    }
-}
