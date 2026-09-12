@@ -505,16 +505,18 @@ private fun resolvePageRange(
         )
     }
 
-    // Reserve space for first/last page shown alongside ellipsis
-    val sideSlots = maxVisible - 2
-    val halfWindow = sideSlots / 2
+    // Reserve space for first/last page shown alongside ellipsis; the remaining
+    // slots form a window around the current page. Any odd extra slot goes after it.
+    val windowSlots = maxVisible - 2
+    val pagesBefore = (windowSlots - 1) / 2
+    val pagesAfter = windowSlots - 1 - pagesBefore
 
     val start: Int
     val end: Int
 
     when {
         // Near the start — no leading ellipsis needed
-        currentPage <= halfWindow + 2 -> {
+        currentPage - pagesBefore <= 2 -> {
             start = 1
             end = maxVisible - 1
             return PageRange(
@@ -525,7 +527,7 @@ private fun resolvePageRange(
         }
 
         // Near the end — no trailing ellipsis needed
-        currentPage >= totalPages - halfWindow - 1 -> {
+        currentPage + pagesAfter >= totalPages - 1 -> {
             start = totalPages - maxVisible + 2
             end = totalPages
             return PageRange(
@@ -537,8 +539,8 @@ private fun resolvePageRange(
 
         // In the middle — both ellipses
         else -> {
-            start = currentPage - halfWindow
-            end = currentPage + halfWindow
+            start = currentPage - pagesBefore
+            end = currentPage + pagesAfter
             return PageRange(
                 range = start..end,
                 showLeadingEllipsis = true,
