@@ -86,7 +86,6 @@ public enum class AlertDialogAnimation {
  *
  * @param open Whether the alert dialog is currently visible.
  * @param onDismiss Callback invoked when the user presses Escape or the cancel action.
- * @param onConfirm Callback invoked when the user confirms the action.
  * @param modifier [Modifier] applied to the dialog card container.
  * @param label Accessibility pane title announced by screen readers. Defaults to "Alert Dialog".
  * @param animation [AlertDialogAnimation] style for enter/exit transitions. Defaults to [AlertDialogAnimation.FadeScale].
@@ -99,7 +98,6 @@ public enum class AlertDialogAnimation {
 public fun AlertDialog(
     open: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
     label: String = "Alert Dialog",
     animation: AlertDialogAnimation = AlertDialogAnimation.FadeScale,
