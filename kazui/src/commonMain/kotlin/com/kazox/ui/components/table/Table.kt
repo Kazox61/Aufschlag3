@@ -240,7 +240,7 @@ public fun TableRow(
     // Combine stripe + hover (hover overlays stripe)
     val rowBg = if (hoverAlpha > 0f) hoverBg else stripeBg
 
-    val showBorder = borderStyle != TableBorderStyle.Borderless
+    val showBorder = borderStyle == TableBorderStyle.Bordered
 
     val baseModifier =
         modifier
