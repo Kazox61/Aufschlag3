@@ -434,16 +434,32 @@ private fun SelectItem(
 
 // ─── Internal: Position Provider ────────────────────────────
 
-// Positions popup directly below the trigger with a 4px gap
+// Positions popup below the trigger with a 4px gap, flipping above when it
+// would overflow the bottom edge, and clamps the result to the window bounds.
 private object DropdownPositionProvider : PopupPositionProvider {
+    private const val GAP = 4
+
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
     ): IntOffset {
-        val x = anchorBounds.left
-        val y = anchorBounds.bottom + 4
+        // Align to the anchor's start edge per layout direction
+        val preferredX =
+            if (layoutDirection == LayoutDirection.Ltr) {
+                anchorBounds.left
+            } else {
+                anchorBounds.right - popupContentSize.width
+            }
+        val x = preferredX.coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+
+        val below = anchorBounds.bottom + GAP
+        val above = anchorBounds.top - GAP - popupContentSize.height
+        val fitsBelow = below + popupContentSize.height <= windowSize.height
+        val preferredY = if (fitsBelow || above < 0) below else above
+        val y = preferredY.coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
+
         return IntOffset(x = x, y = y)
     }
 }
