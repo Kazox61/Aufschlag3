@@ -351,9 +351,10 @@ public fun Scaffold(
 
             // ── Place everything (order = drawing order) ───────
             layout(layoutWidth, layoutHeight) {
-                // Body first (lowest layer)
+                // Body first (lowest layer). Absolute placement: the insets are physical left/right
+                // edges, so they must not mirror in RTL.
                 contentPlaceables.forEach {
-                    it.placeRelative(insetLeft, totalTopPadding)
+                    it.place(insetLeft, totalTopPadding)
                 }
                 // Top bar over content, its content pushed below the status bar
                 topBarPlaceables.forEach { it.placeRelative(0, barTopInset) }
@@ -372,11 +373,11 @@ public fun Scaffold(
                         it.place(fabLeftOffset, layoutHeight - fabOffsetFromBottom)
                     }
                 }
-                // Snackbar centered, above bottom bar / FAB
+                // Snackbar centered, above bottom bar / FAB (absolute, same reason as the body)
                 snackbarPlaceables.forEach {
                     val snackbarX =
                         (layoutWidth - snackbarWidth + insetLeft - insetRight) / 2
-                    it.placeRelative(snackbarX, layoutHeight - snackbarOffsetFromBottom)
+                    it.place(snackbarX, layoutHeight - snackbarOffsetFromBottom)
                 }
                 // Toast overlay on top of everything (highest layer)
                 toastPlaceables.forEach { it.placeRelative(0, 0) }
