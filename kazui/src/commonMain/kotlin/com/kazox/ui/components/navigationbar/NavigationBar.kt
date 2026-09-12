@@ -1,11 +1,19 @@
 package com.kazox.ui.components.navigationbar
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -55,6 +63,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -566,18 +575,13 @@ public fun RowScope.NavigationBarItem(
         animationSpec = floatAnimSpec,
     )
 
-    // ─── Label fade animation ────────────────────────────
+    // ─── Label visibility ────────────────────────────────
     // The bar gates labels entirely (the floating variant is icon-only); alwaysShowLabel
-    // then chooses between "always" and "only while selected".
+    // then chooses between "always" and "only while selected". A hidden label leaves
+    // composition so it neither reserves space nor exposes semantics.
     val showLabel = style.showLabels && (alwaysShowLabel || selected)
-    val labelAlpha by animateFloatAsState(
-        targetValue = if (showLabel && label != null) 1f else 0f,
-        animationSpec = floatAnimSpec,
-    )
-    val labelOffset by animateDpAsState(
-        targetValue = if (showLabel && label != null) 0.dp else 4.dp,
-        animationSpec = dpAnimSpec,
-    )
+    val labelFadeSpec: FiniteAnimationSpec<Float> = resolveFiniteAnimSpec(animation, motion)
+    val labelSizeSpec: FiniteAnimationSpec<IntSize> = resolveFiniteAnimSpec(animation, motion)
 
     // ─── Press scale ─────────────────────────────────────
     val pressScale by animateFloatAsState(
@@ -687,15 +691,15 @@ public fun RowScope.NavigationBarItem(
             }
 
             // ─── Label ───────────────────────────────
-            if (label != null && style.showLabels) {
-                Box(
-                    modifier =
-                        Modifier
-                            .padding(top = KazTheme.spacing.xs)
-                            .offset { IntOffset(x = 0, y = labelOffset.roundToPx()) }
-                            .graphicsLayer { alpha = labelAlpha },
+            if (label != null) {
+                AnimatedVisibility(
+                    visible = showLabel,
+                    enter = fadeIn(labelFadeSpec) + expandVertically(labelSizeSpec, expandFrom = Alignment.Top),
+                    exit = fadeOut(labelFadeSpec) + shrinkVertically(labelSizeSpec, shrinkTowards = Alignment.Top),
                 ) {
-                    label()
+                    Box(modifier = Modifier.padding(top = KazTheme.spacing.xs)) {
+                        label()
+                    }
                 }
             }
         }
@@ -824,5 +828,23 @@ private fun <T> resolveAnimSpec(
     when (animation) {
         NavigationBarAnimation.Spring -> motion.spatialDefault()
         NavigationBarAnimation.Tween -> motion.effectsDefault()
+        NavigationBarAnimation.None -> snap()
+    }
+
+/**
+ * Like [resolveAnimSpec] but typed as [FiniteAnimationSpec], which enter/exit
+ * transitions require.
+ */
+private fun <T> resolveFiniteAnimSpec(
+    animation: NavigationBarAnimation,
+    motion: com.kazox.ui.foundation.KazMotion,
+): FiniteAnimationSpec<T> =
+    when (animation) {
+        NavigationBarAnimation.Spring ->
+            spring(
+                dampingRatio = motion.spatialDampingDefault,
+                stiffness = motion.spatialStiffnessDefault,
+            )
+        NavigationBarAnimation.Tween -> tween(durationMillis = motion.durationDefault)
         NavigationBarAnimation.None -> snap()
     }
