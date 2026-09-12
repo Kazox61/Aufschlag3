@@ -23,7 +23,8 @@ public enum class IconButtonSize {
 // ─── Component ───────────────────────────────────────────────
 
 /**
- * A square icon-only button — a convenience wrapper over [Button] with [ButtonSize.Icon].
+ * A square icon-only button — a convenience wrapper over [Button] with the square
+ * [ButtonSize.Icon], [ButtonSize.IconSm] and [ButtonSize.IconLg] sizes.
  *
  * Defaults to [ButtonVariant.Ghost] for a transparent background that
  * reveals a hover/press state layer, matching typical icon-button patterns.
@@ -60,9 +61,9 @@ public fun IconButton(
 ) {
     val buttonSize =
         when (size) {
-            IconButtonSize.Sm -> ButtonSize.Sm
+            IconButtonSize.Sm -> ButtonSize.IconSm
             IconButtonSize.Default -> ButtonSize.Icon
-            IconButtonSize.Lg -> ButtonSize.Lg
+            IconButtonSize.Lg -> ButtonSize.IconLg
         }
 
     val iconSize =

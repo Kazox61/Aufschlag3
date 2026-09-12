@@ -76,12 +76,16 @@ public enum class ButtonVariant {
  * @property Sm Compact size.
  * @property Lg Large touch target.
  * @property Icon Square, icon-only.
+ * @property IconSm Compact square, icon-only.
+ * @property IconLg Large square, icon-only.
  */
 public enum class ButtonSize {
     Default,
     Sm,
     Lg,
     Icon,
+    IconSm,
+    IconLg,
 }
 
 // ─── Animation ──────────────────────────────────────────────
@@ -194,7 +198,7 @@ public object ButtonDefaults {
     @Composable
     public fun shape(size: ButtonSize = ButtonSize.Default): Shape =
         when (size) {
-            ButtonSize.Sm -> KazTheme.shapes.md
+            ButtonSize.Sm, ButtonSize.IconSm -> KazTheme.shapes.md
             else -> KazTheme.shapes.lg
         }
 
@@ -207,7 +211,7 @@ public object ButtonDefaults {
     @Composable
     public fun pressedShape(size: ButtonSize = ButtonSize.Default): Shape =
         when (size) {
-            ButtonSize.Sm -> KazTheme.shapes.lg
+            ButtonSize.Sm, ButtonSize.IconSm -> KazTheme.shapes.lg
             else -> KazTheme.shapes.xl
         }
 
@@ -252,6 +256,24 @@ public object ButtonDefaults {
                     verticalPadding = 0.dp,
                     contentSpacing = 0.dp,
                 )
+
+            ButtonSize.IconSm ->
+                SizeValues(
+                    minHeight = 28.dp,
+                    minWidth = 28.dp,
+                    horizontalPadding = 0.dp,
+                    verticalPadding = 0.dp,
+                    contentSpacing = 0.dp,
+                )
+
+            ButtonSize.IconLg ->
+                SizeValues(
+                    minHeight = 44.dp,
+                    minWidth = 44.dp,
+                    horizontalPadding = 0.dp,
+                    verticalPadding = 0.dp,
+                    contentSpacing = 0.dp,
+                )
         }
 }
 
@@ -278,7 +300,7 @@ public object ButtonDefaults {
  * @param onClick Called when the button is clicked.
  * @param modifier Modifier applied to the button container.
  * @param variant Visual style — [ButtonVariant.Default], Outline, Secondary, Ghost, Destructive, Link, Success.
- * @param size Touch target and padding — [ButtonSize.Default], Sm, Lg, Icon.
+ * @param size Touch target and padding — [ButtonSize.Default], Sm, Lg, Icon, IconSm, IconLg.
  * @param animation Press feedback — [ButtonAnimation.Scale], Bounce, None.
  * @param enabled Whether the button responds to input.
  * @param loading Shows a spinner alongside content when true.
