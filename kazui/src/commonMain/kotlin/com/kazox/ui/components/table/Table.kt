@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
@@ -261,15 +262,16 @@ public fun TableRow(
             ).background(rowBg)
 
     val interactiveModifier =
-        if (onClick != null || hoverEnabled) {
-            baseModifier.clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                role = if (onClick != null) Role.Button else null,
-                onClick = onClick ?: {},
-            )
-        } else {
-            baseModifier
+        when {
+            onClick != null ->
+                baseModifier.clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    role = Role.Button,
+                    onClick = onClick,
+                )
+            hoverEnabled -> baseModifier.hoverable(interactionSource = interactionSource)
+            else -> baseModifier
         }
 
     Row(
