@@ -326,8 +326,8 @@ private fun StepperButton(
     val isPressed by interactionSource.collectIsPressedAsState()
     var didRepeat by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isPressed) {
-        if (!isPressed || !holdToRepeat) return@LaunchedEffect
+    LaunchedEffect(isPressed, enabled) {
+        if (!isPressed || !holdToRepeat || !enabled) return@LaunchedEffect
         didRepeat = false
         delay(StepperDefaults.RepeatInitialDelayMillis)
         didRepeat = true
