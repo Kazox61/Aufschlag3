@@ -70,8 +70,6 @@ private val LocalTableBorderStyle =
 // Reset to -1 so the first data row becomes index 0
 private val LocalTableRowIndex = compositionLocalOf { -1 }
 
-private val LocalTableStickyHeader = compositionLocalOf { false }
-
 // ─── Table ─────────────────────────────────────────────────
 
 /**
@@ -98,7 +96,6 @@ private val LocalTableStickyHeader = compositionLocalOf { false }
  * @param columnCount Total number of columns for accessibility collection info. Defaults to -1 (unset).
  * @param animation [TableAnimation] controlling row hover and stripe effects. Defaults to [TableAnimation.Hover].
  * @param borderStyle [TableBorderStyle] controlling outer border and row dividers. Defaults to [TableBorderStyle.Outlined].
- * @param stickyHeader Whether the table header should remain fixed during scrolling. Defaults to false.
  * @param content [ColumnScope] content lambda containing [TableHeader] and [TableRow] children.
  */
 @Composable
@@ -108,7 +105,6 @@ public fun Table(
     columnCount: Int = -1,
     animation: TableAnimation = TableAnimation.Hover,
     borderStyle: TableBorderStyle = TableBorderStyle.Outlined,
-    stickyHeader: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = KazTheme.shapes.md
@@ -132,7 +128,6 @@ public fun Table(
     CompositionLocalProvider(
         LocalTableAnimation provides animation,
         LocalTableBorderStyle provides borderStyle,
-        LocalTableStickyHeader provides stickyHeader,
     ) {
         Column(
             modifier =
