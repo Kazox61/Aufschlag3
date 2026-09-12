@@ -196,16 +196,18 @@ public fun ToggleGroupItem(
         modifier =
             modifier
                 .minTouchTarget()
-                .then(borderModifier)
-                .then(backgroundModifier)
-                .clip(shape)
                 .graphicsLayer {
                     // Indication is null, so without this a tap on an already-subtle grey pill
                     // gives no acknowledgement whatsoever until the colour finishes animating.
+                    // Sits outside border/background so the whole pill scales and fades, not
+                    // just the content inside it.
                     scaleX = pressScale
                     scaleY = pressScale
                     alpha = if (isHovered && !selected) motion.hoverAlpha else 1f
-                }.selectable(
+                }.then(borderModifier)
+                .then(backgroundModifier)
+                .clip(shape)
+                .selectable(
                     selected = selected,
                     interactionSource = interactionSource,
                     indication = null,
