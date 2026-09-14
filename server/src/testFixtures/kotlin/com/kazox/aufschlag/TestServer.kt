@@ -5,7 +5,7 @@ import com.kazox.aufschlag.mail.LoggingMailer
 import com.kazox.aufschlag.mail.Mailer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import java.net.ServerSocket
+import kotlinx.coroutines.runBlocking
 
 val testAuthConfig = AuthConfig(jwtSecret = "test-secret-not-for-production-padding")
 
@@ -20,11 +20,13 @@ class TestServer private constructor(val baseUrl: String, private val onStop: ()
 
     companion object {
         fun start(auth: AuthConfig = testAuthConfig, mailer: Mailer = LoggingMailer()): TestServer {
-            val port = ServerSocket(0).use { it.localPort }
-            val engine = embeddedServer(Netty, port = port, host = "127.0.0.1") {
+            // port 0 lets the kernel pick a free port at bind time — no probe-then-bind gap for
+            // a parallel test worker to grab the same port in
+            val server = embeddedServer(Netty, port = 0, host = "127.0.0.1") {
                 module(TestDatabase.dataSource, TestDatabase.database, auth, mailer)
             }.start(wait = false)
-            return TestServer("http://127.0.0.1:$port") { engine.stop(gracePeriodMillis = 0, timeoutMillis = 1000) }
+            val port = runBlocking { server.engine.resolvedConnectors().single().port }
+            return TestServer("http://127.0.0.1:$port") { server.stop(gracePeriodMillis = 0, timeoutMillis = 1000) }
         }
     }
 }

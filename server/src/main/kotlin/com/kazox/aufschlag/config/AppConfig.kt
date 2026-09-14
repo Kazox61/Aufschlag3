@@ -42,7 +42,15 @@ data class AppConfig(
                     ?: error("JWT_SECRET is not set (min $MIN_JWT_SECRET_LENGTH chars); refusing to start"),
             ),
             mail = MailConfig(
-                apiKey = env["MAIL_API_KEY"],
+                // No silent fallback: a production deploy that forgot MAIL_API_KEY would
+                // otherwise "send" password-reset tokens to its log. The :server:run Gradle
+                // task opts into log-only mail for dev.
+                apiKey = env["MAIL_API_KEY"]
+                    ?: if (env["MAIL_LOG_ONLY"]?.toBooleanStrictOrNull() == true) {
+                        null
+                    } else {
+                        error("MAIL_API_KEY is not set (or MAIL_LOG_ONLY=true for dev); refusing to start")
+                    },
                 from = env["MAIL_FROM"] ?: "Aufschlag <noreply@localhost>",
             ),
             corsAllowedOrigins = env["CORS_ALLOWED_ORIGINS"]
@@ -86,7 +94,8 @@ data class AuthConfig(
 }
 
 data class MailConfig(
-    /** Resend API key; when null, mails are logged instead of sent (dev). */
+    /** Resend API key; null only with explicit `MAIL_LOG_ONLY=true`, in which case mails are
+     *  logged instead of sent (dev). */
     val apiKey: String?,
     val from: String,
 )

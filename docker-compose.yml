@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: aufschlag
       POSTGRES_PASSWORD: aufschlag
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:

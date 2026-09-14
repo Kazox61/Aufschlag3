@@ -39,7 +39,9 @@ class PostgresClubRepository : ClubRepository {
                 val searchCondition = if (trimmed.isNullOrEmpty()) {
                     Op.TRUE
                 } else {
-                    val pattern = "%${trimmed.lowercase()}%"
+                    // ofLiteral escapes %, _ and the escape char so a search for "50%" or "a_b"
+                    // matches those characters literally instead of acting as wildcards
+                    val pattern = LikePattern("%", LIKE_ESCAPE) + LikePattern.ofLiteral(trimmed.lowercase(), LIKE_ESCAPE) + "%"
                     (ClubsTable.name.lowerCase() like pattern) or (ClubsTable.slug.lowerCase() like pattern)
                 }
                 val visibilityCondition = if (excludeStatuses.isNotEmpty()) {
@@ -72,4 +74,7 @@ class PostgresClubRepository : ClubRepository {
         }
     }
 
+    private companion object {
+        const val LIKE_ESCAPE = '\\'
+    }
 }

@@ -51,6 +51,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -64,44 +65,37 @@ fun dynamicSlotStart(timeZone: TimeZone, daysFromToday: Int, hour: Int): Instant
     return LocalDateTime(date, LocalTime(hour, 0)).toInstant(timeZone)
 }
 
+/** Sends are fire-and-forget in AuthService/MembershipService, so tests must await, not poll
+ *  [sent]/[decisions]. Each recipient gets its own queue and every `await` consumes exactly
+ *  one mail, so a second reset request for the same address yields the *second* token rather
+ *  than re-reading the first. */
 class RecordingMailer : Mailer {
     data class Sent(val to: String, val token: String)
     data class DecisionSent(val to: String, val clubName: String, val approved: Boolean)
 
     val sent = ConcurrentLinkedQueue<Sent>()
     val decisions = ConcurrentLinkedQueue<DecisionSent>()
-    private val notifications = Channel<Sent>(Channel.UNLIMITED)
-    private val decisionNotifications = Channel<DecisionSent>(Channel.UNLIMITED)
+    private val notifications = ConcurrentHashMap<String, Channel<Sent>>()
+    private val decisionNotifications = ConcurrentHashMap<String, Channel<DecisionSent>>()
 
     override suspend fun sendPasswordReset(to: String, resetToken: String) {
         val mail = Sent(to, resetToken)
         sent += mail
-        notifications.trySend(mail)
+        notifications.inboxFor(to).trySend(mail)
     }
 
     override suspend fun sendApplicationDecision(to: String, clubName: String, approved: Boolean) {
         val mail = DecisionSent(to, clubName, approved)
         decisions += mail
-        decisionNotifications.trySend(mail)
+        decisionNotifications.inboxFor(to).trySend(mail)
     }
 
-    /** Sends are fire-and-forget in AuthService, so tests must await, not poll [sent]. */
-    suspend fun awaitTokenFor(email: String): String {
-        sent.lastOrNull { it.to == email }?.let { return it.token }
-        while (true) {
-            val mail = notifications.receive()
-            if (mail.to == email) return mail.token
-        }
-    }
+    suspend fun awaitTokenFor(email: String): String = notifications.inboxFor(email).receive().token
 
-    /** Sends are fire-and-forget in MembershipService, so tests must await, not poll [decisions]. */
-    suspend fun awaitDecisionFor(email: String): DecisionSent {
-        decisions.lastOrNull { it.to == email }?.let { return it }
-        while (true) {
-            val mail = decisionNotifications.receive()
-            if (mail.to == email) return mail
-        }
-    }
+    suspend fun awaitDecisionFor(email: String): DecisionSent = decisionNotifications.inboxFor(email).receive()
+
+    private fun <T> ConcurrentHashMap<String, Channel<T>>.inboxFor(email: String): Channel<T> =
+        computeIfAbsent(email) { Channel(Channel.UNLIMITED) }
 }
 
 fun authTestApp(

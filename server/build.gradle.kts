@@ -17,6 +17,10 @@ tasks.named<JavaExec>("run") {
     if (environment["JWT_SECRET"] == null) {
         environment("JWT_SECRET", "dev-only-secret-do-not-use-in-production")
     }
+    // Same for mail: log instead of send unless a real MAIL_API_KEY is provided.
+    if (environment["MAIL_API_KEY"] == null && environment["MAIL_LOG_ONLY"] == null) {
+        environment("MAIL_LOG_ONLY", "true")
+    }
 }
 
 dependencies {

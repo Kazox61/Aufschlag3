@@ -27,7 +27,8 @@ interface Mailer {
     fun close() {}
 }
 
-/** Dev fallback when no MAIL_API_KEY is configured: logs instead of sending. */
+/** Dev-only (`MAIL_LOG_ONLY=true`): logs instead of sending. The reset token is part of the
+ *  log line on purpose — it's the only way to complete the reset flow without a provider. */
 class LoggingMailer : Mailer {
     private val log = LoggerFactory.getLogger(LoggingMailer::class.java)
 

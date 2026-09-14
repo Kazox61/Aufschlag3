@@ -13,6 +13,7 @@ import com.kazox.aufschlag.api.club.UpdateMemberRequest
 import com.kazox.aufschlag.db.isUniqueViolation
 import com.kazox.aufschlag.db.withTransaction
 import com.kazox.aufschlag.mail.Mailer
+import com.kazox.aufschlag.repositories.BookingRepository
 import com.kazox.aufschlag.repositories.ClubRepository
 import com.kazox.aufschlag.repositories.ClubRow
 import com.kazox.aufschlag.repositories.MembershipRepository
@@ -30,6 +31,7 @@ class MembershipService(
     private val db: Database,
     private val clubs: ClubRepository,
     private val memberships: MembershipRepository,
+    private val bookings: BookingRepository,
     private val entitlements: EntitlementService,
     private val mailer: Mailer,
     /** Outlives the request: mail sends must not block (or fail) the response. */
@@ -87,7 +89,9 @@ class MembershipService(
             val club = requireClub(clubId)
             entitlements.requireWritable(club)
             val application = requirePendingApplication(clubId, membershipId)
-            memberships.approve(application.membership.id)
+            // conditional on status = PENDING: a concurrent decision that committed between the
+            // read above and this update leaves 0 rows — report it, don't mail a stale outcome
+            if (memberships.approve(application.membership.id) == 0) throw pendingApplicationNotFound()
             club to memberships.findByIdAndClubWithUser(application.membership.id, clubId)!!
         }
         notifyDecision(club, approved.userEmail, approved = true)
@@ -101,7 +105,7 @@ class MembershipService(
             val club = requireClub(clubId)
             entitlements.requireWritable(club)
             val application = requirePendingApplication(clubId, membershipId)
-            memberships.deletePending(application.membership.id)
+            if (memberships.deletePending(application.membership.id) == 0) throw pendingApplicationNotFound()
             club to application.userEmail
         }
         notifyDecision(club, applicantEmail, approved = false)
@@ -153,6 +157,11 @@ class MembershipService(
                     throw ApiException.forbidden("Only the OWNER can modify an ADMIN's membership")
                 }
             }
+            // A status change alters the target's booking tier/limits, so it takes the target's
+            // per-user lock — the one BookingService.create holds from its status read through
+            // its insert — so a booking can't be priced against a status that is being
+            // changed concurrently. Role-only updates don't affect booking and stay lock-free.
+            if (request.status != null) bookings.lockForBookingLimitCheck(target.userId)
             val updated = memberships.updateMember(membershipId, request.role, request.status)
             if (updated == 0) throw ApiException.notFound("Member not found")
             memberships.findByIdAndClubWithUser(membershipId, clubId)!!.toResponse()
@@ -176,6 +185,8 @@ class MembershipService(
         withTransaction(db) {
             val club = requireClub(clubId)
             entitlements.requireWritable(club)
+            // same per-user lock as updateMember: pause/resume changes the caller's booking tier
+            bookings.lockForBookingLimitCheck(callerUserId)
             val updated = memberships.transitionStatus(callerUserId, clubId, from, to)
             if (updated == 0) {
                 memberships.findNonEnded(callerUserId, clubId)
@@ -218,7 +229,9 @@ class MembershipService(
     private fun requirePendingApplication(clubId: Uuid, membershipId: Uuid): MembershipWithUserRow =
         memberships.findByIdAndClubWithUser(membershipId, clubId)
             ?.takeIf { it.membership.status == MembershipStatus.PENDING }
-            ?: throw ApiException.notFound("Pending application not found")
+            ?: throw pendingApplicationNotFound()
+
+    private fun pendingApplicationNotFound() = ApiException.notFound("Pending application not found")
 
     private fun alreadyMember() =
         ApiException(HttpStatusCode.Conflict, ErrorCode.ALREADY_MEMBER, "Already applied to or a member of this club")

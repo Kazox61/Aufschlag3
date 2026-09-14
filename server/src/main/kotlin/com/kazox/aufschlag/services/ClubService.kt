@@ -89,7 +89,8 @@ class ClubService(
         contactEmail?.let { validateContactEmail(it) }
 
         return withTransaction(db) {
-            clubs.findById(clubId) ?: throw ApiException.notFound("Club not found")
+            val club = clubs.findById(clubId) ?: throw ApiException.notFound("Club not found")
+            entitlements.requireWritable(club)
             clubs.updateProfile(clubId, name, address, contactEmail, phone, website, logoUrl)
             clubs.findById(clubId)!!.toResponse()
         }
