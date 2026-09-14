@@ -7,7 +7,9 @@ package com.kazox.aufschlag.auth
  * sets would.
  */
 object RegistrationRules {
-    val EMAIL_REGEX: Regex = Regex(".+@.+\\..+")
+    /** Local part, exactly one `@`, a domain with at least one dot — none of it whitespace.
+     *  Deliberately loose beyond that: real-world deliverability is what verification mail is for. */
+    val EMAIL_REGEX: Regex = Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")
     const val EMAIL_MAX_LENGTH: Int = 255
     const val NAME_MAX_LENGTH: Int = 100
     const val PASSWORD_MIN_LENGTH: Int = 8

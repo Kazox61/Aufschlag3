@@ -214,4 +214,10 @@ class PricingTest {
     fun `slot start minutes - a window shorter than one slot yields no slots`() {
         assertEquals(emptyList(), slotStartMinutes(openMinute = 480, closeMinute = 500, slotMinutes = 60))
     }
+
+    @Test
+    fun `slot start minutes - a non-positive slot length is rejected instead of looping forever`() {
+        assertFailsWith<IllegalArgumentException> { slotStartMinutes(openMinute = 480, closeMinute = 1320, slotMinutes = 0) }
+        assertFailsWith<IllegalArgumentException> { slotStartMinutes(openMinute = 480, closeMinute = 1320, slotMinutes = -30) }
+    }
 }

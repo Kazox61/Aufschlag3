@@ -28,11 +28,16 @@ data class ClubSettings(
     val advanceBookingDays: Map<BookingTier, Int> = defaultAdvanceBookingDays(),
     val maxOpenBookings: Map<BookingTier, Int> = defaultMaxOpenBookings(),
 ) {
-    /** Throws [IllegalArgumentException] describing the first violation found. */
+    /** Throws [IllegalArgumentException] describing the first violation found. Every day and
+     *  every tier must be present: the booking rules look these up per day/tier, and a missing
+     *  key would silently read as "closed" or "no bookings allowed" rather than as an error. */
     fun validate() {
         require(cancellationWindowHours in 0..168) {
             "cancellationWindowHours must be 0-168, was $cancellationWindowHours"
         }
+        requireKeys(openingHours, DayOfWeek.entries, "openingHours")
+        requireKeys(advanceBookingDays, BookingTier.entries, "advanceBookingDays")
+        requireKeys(maxOpenBookings, BookingTier.entries, "maxOpenBookings")
         openingHours.forEach { (day, hours) ->
             hours?.let {
                 require(it.closesAt > it.opensAt) {
@@ -46,6 +51,11 @@ data class ClubSettings(
         maxOpenBookings.values.forEach {
             require(it in 0..100) { "maxOpenBookings must be 0-100, was $it" }
         }
+    }
+
+    private fun <K> requireKeys(map: Map<K, *>, expected: Collection<K>, name: String) {
+        val missing = expected - map.keys
+        require(missing.isEmpty()) { "$name is missing entries for $missing" }
     }
 }
 
