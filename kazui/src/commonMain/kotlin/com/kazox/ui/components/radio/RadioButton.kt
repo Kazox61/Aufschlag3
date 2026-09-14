@@ -171,8 +171,6 @@ public fun RadioButton(
                             radius = radius,
                             style = Stroke(width = strokeWidth),
                         )
-                    }.graphicsLayer {
-                        // Scale only the inner dot drawing
                     },
             contentAlignment = Alignment.Center,
         ) {

@@ -254,15 +254,15 @@ public fun DropdownMenu(
  *
  * @param text Label text displayed in the menu item.
  * @param onClick Callback invoked when the item is clicked.
- * @param enabled Whether the item is interactive. Defaults to true. Disabled items are visually dimmed.
  * @param modifier [Modifier] applied to the menu item row.
+ * @param enabled Whether the item is interactive. Defaults to true. Disabled items are visually dimmed.
  */
 @Composable
 public fun DropdownMenuItem(
     text: String,
     onClick: () -> Unit,
-    enabled: Boolean = true,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()

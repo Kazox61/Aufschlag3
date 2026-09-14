@@ -293,8 +293,8 @@ private fun ContextMenuPanel(
     maxHeight: Dp,
     menuContent: @Composable ColumnScope.() -> Unit,
     label: String = "Context menu",
-    focusRequester: FocusRequester? = null,
-    onDismiss: (() -> Unit)? = null,
+    focusRequester: FocusRequester,
+    onDismiss: () -> Unit,
 ) {
     val colors = KazTheme.colors
     val shapes = KazTheme.shapes
@@ -305,16 +305,11 @@ private fun ContextMenuPanel(
         Column(
             modifier =
                 Modifier
-                    .then(
-                        if (focusRequester != null) {
-                            Modifier.focusRequester(focusRequester)
-                        } else {
-                            Modifier
-                        },
-                    ).focusable()
+                    .focusRequester(focusRequester)
+                    .focusable()
                     .onKeyEvent {
                         if (it.key == Key.Escape && it.type == KeyEventType.KeyDown) {
-                            onDismiss?.invoke()
+                            onDismiss()
                             true
                         } else {
                             false

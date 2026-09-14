@@ -137,6 +137,9 @@ public const val TOAST_DURATION_INFINITE: Long = Long.MAX_VALUE
 private const val DEFAULT_MAX_VISIBLE_TOASTS = 5
 
 private const val SWIPE_DISMISS_THRESHOLD = 150f
+
+/** Extra wait after the exit animation before the toast is actually removed. */
+private const val EXIT_ANIMATION_PADDING_MS = 50L
 // Scale initial value now comes from KazTheme.motion.toastScaleIn
 
 // ─── Host State ─────────────────────────────────────────────
@@ -299,6 +302,16 @@ private fun ToastItem(
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
+    // Play the exit animation, then actually remove the toast
+    val scope = rememberCoroutineScope()
+    fun startDismiss() {
+        visible = false
+        scope.launch {
+            delay(motion.durationDefault.toLong() + EXIT_ANIMATION_PADDING_MS)
+            onDismiss()
+        }
+    }
+
     // Read through rememberUpdatedState so the timer (keyed only by data.id) sees
     // parameter changes without restarting.
     val currentShowProgressBar by rememberUpdatedState(showProgressBar)
@@ -316,10 +329,7 @@ private fun ToastItem(
                 if (currentShowProgressBar) elapsed = ticked
             }
         }
-        // Trigger exit animation, then actually remove
-        visible = false
-        delay(motion.durationDefault.toLong() + 50L)
-        onDismiss()
+        startDismiss()
     }
 
     // Progress fraction (1.0 = full, 0.0 = expired)
@@ -341,8 +351,6 @@ private fun ToastItem(
             swipeOffset.value.absoluteValue /
                 SWIPE_DISMISS_THRESHOLD
         ).coerceIn(0f, 1f) * 0.5f
-    val swipeScope = rememberCoroutineScope()
-
     val enterDirection = if (isTop) -1 else 1
     val (enter, exit) =
         resolveTransitions(
@@ -370,16 +378,9 @@ private fun ToastItem(
                                 if (swipeOffset.value.absoluteValue >
                                     SWIPE_DISMISS_THRESHOLD
                                 ) {
-                                    visible = false
-                                    swipeScope.launch {
-                                        delay(
-                                            motion.durationDefault
-                                                .toLong() + 50L,
-                                        )
-                                        onDismiss()
-                                    }
+                                    startDismiss()
                                 } else {
-                                    swipeScope.launch {
+                                    scope.launch {
                                         swipeOffset.animateTo(
                                             0f,
                                             tween(motion.durationDefault),
@@ -389,7 +390,7 @@ private fun ToastItem(
                             },
                             onHorizontalDrag = { _, dragAmount ->
                                 val target = swipeOffset.value + dragAmount
-                                swipeScope.launch { swipeOffset.snapTo(target) }
+                                scope.launch { swipeOffset.snapTo(target) }
                             },
                         )
                     }
@@ -400,13 +401,7 @@ private fun ToastItem(
         Toast(
             message = data.message,
             variant = data.variant,
-            onDismiss = {
-                visible = false
-                swipeScope.launch {
-                    delay(motion.durationDefault.toLong() + 50L)
-                    onDismiss()
-                }
-            },
+            onDismiss = ::startDismiss,
             actionLabel = data.actionLabel,
             onAction = data.onAction,
             showProgressBar = showProgressBar && isFiniteDuration,
@@ -482,9 +477,9 @@ private fun resolveTransitions(
  * button, and close button. Supports pause-on-hover for auto-dismiss timers.
  *
  * @param message The notification text displayed in the toast.
- * @param variant [ToastVariant] controlling the accent color (Default, Success, Destructive, Warning). Defaults to [ToastVariant.Default].
  * @param onDismiss Callback invoked when the dismiss button is clicked or the toast is swiped away.
  * @param modifier [Modifier] applied to the toast card.
+ * @param variant [ToastVariant] controlling the accent color (Default, Success, Destructive, Warning). Defaults to [ToastVariant.Default].
  * @param actionLabel Optional label for an inline action button. Both [actionLabel] and [onAction] must be set to show the button.
  * @param onAction Optional callback invoked when the action button is clicked.
  * @param label Accessibility content description override. Defaults to auto-generated text based on [variant] and [message].
@@ -495,9 +490,9 @@ private fun resolveTransitions(
 @Composable
 public fun Toast(
     message: String,
-    variant: ToastVariant = ToastVariant.Default,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    variant: ToastVariant = ToastVariant.Default,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
     label: String = "",

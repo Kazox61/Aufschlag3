@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +46,12 @@ public enum class AlertVariant {
     Destructive,
 }
 
+/**
+ * The [AlertVariant] of the enclosing [Alert], inherited by [AlertTitle] and
+ * [AlertDescription] when they don't specify one explicitly.
+ */
+internal val LocalAlertVariant = staticCompositionLocalOf { AlertVariant.Default }
+
 // ─── Animation ──────────────────────────────────────────────
 
 /** Entrance animation when an alert first appears. */
@@ -64,7 +71,8 @@ public enum class AlertAnimation {
 /**
  * Alert banner for important messages, supporting default and destructive styles.
  *
- * Provides [LocalContentColor] and [LocalTextStyle] to children.
+ * Provides [LocalContentColor] and [LocalTextStyle] to children, and propagates
+ * [variant] so [AlertTitle] and [AlertDescription] pick it up by default.
  * Destructive alerts use [LiveRegionMode.Assertive] so screen readers announce immediately;
  * default alerts use [LiveRegionMode.Polite].
  *
@@ -78,8 +86,8 @@ public enum class AlertAnimation {
  *     variant = AlertVariant.Destructive,
  *     icon = { Icon(KazIcons.X, contentDescription = null) },
  * ) {
- *     AlertTitle("Error", variant = AlertVariant.Destructive)
- *     AlertDescription("Something went wrong.", variant = AlertVariant.Destructive)
+ *     AlertTitle("Error")
+ *     AlertDescription("Something went wrong.")
  * }
  * ```
  *
@@ -109,15 +117,9 @@ public fun Alert(
         }
 
     val semanticsModifier =
-        if (label.isNotEmpty()) {
-            Modifier.semantics(mergeDescendants = true) {
-                contentDescription = label
-                liveRegion = resolvedLiveRegion
-            }
-        } else {
-            Modifier.semantics(mergeDescendants = true) {
-                liveRegion = resolvedLiveRegion
-            }
+        Modifier.semantics(mergeDescendants = true) {
+            if (label.isNotEmpty()) contentDescription = label
+            liveRegion = resolvedLiveRegion
         }
 
     val animationModifier = resolveAnimationModifier(animation)
@@ -132,6 +134,7 @@ public fun Alert(
             .padding(KazTheme.spacing.lg)
 
     CompositionLocalProvider(
+        LocalAlertVariant provides variant,
         LocalContentColor provides resolved.foreground,
         LocalTextStyle provides KazTheme.typography.small,
     ) {
@@ -177,12 +180,13 @@ public fun Alert(
  * @param text The title string to display.
  * @param modifier [Modifier] applied to the underlying Text.
  * @param variant [AlertVariant] controlling the text color (destructive uses red).
+ *   Defaults to the enclosing [Alert]'s variant.
  */
 @Composable
 public fun AlertTitle(
     text: String,
     modifier: Modifier = Modifier,
-    variant: AlertVariant = AlertVariant.Default,
+    variant: AlertVariant = LocalAlertVariant.current,
 ) {
     val color =
         when (variant) {
@@ -208,12 +212,13 @@ public fun AlertTitle(
  * @param text The description string to display.
  * @param modifier [Modifier] applied to the underlying Text.
  * @param variant [AlertVariant] controlling the text color (destructive uses red, default uses muted).
+ *   Defaults to the enclosing [Alert]'s variant.
  */
 @Composable
 public fun AlertDescription(
     text: String,
     modifier: Modifier = Modifier,
-    variant: AlertVariant = AlertVariant.Default,
+    variant: AlertVariant = LocalAlertVariant.current,
 ) {
     val color = resolveDescriptionColor(variant)
 
