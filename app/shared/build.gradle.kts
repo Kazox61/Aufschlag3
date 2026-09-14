@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinx.serialization)
 }
 
 kotlin {
@@ -55,9 +56,12 @@ kotlin {
         commonMain.dependencies {
             api(project(":core"))
             implementation(project(":kazui"))
+            implementation(libs.bundles.koin.common)
+            implementation(libs.bundles.nav3.common)
+            implementation(libs.kotlinx.serialization.json)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
-            implementation(libs.compose.material3)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.uiToolingPreview)
@@ -72,4 +76,8 @@ kotlin {
 
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
+}
+
+compose.resources {
+    packageOfResClass = "com.kazox.aufschlag.resources"
 }
