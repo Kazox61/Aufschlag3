@@ -406,8 +406,9 @@ private data class ThumbGeometry(
  * Computes the thumb's length and position along the scroll axis.
  *
  * The thumb fraction is the visible portion of the total content (clamped to
- * at least 5%), and its length never drops below [minThumbPx]. When there is
- * nothing to scroll the thumb fills the track and sits at offset 0.
+ * at least 5%), and its length never drops below [minThumbPx] — unless the
+ * track itself is shorter than that, in which case the thumb fills the track.
+ * When there is nothing to scroll the thumb fills the track and sits at offset 0.
  */
 private fun thumbGeometry(
     scrollValue: Int,
@@ -422,7 +423,9 @@ private fun thumbGeometry(
         } else {
             1f
         }
-    val sizePx = (containerPx * thumbFraction).coerceAtLeast(minThumbPx)
+    // Never let the minimum push the thumb beyond an undersized track.
+    val effectiveMinPx = minThumbPx.coerceAtMost(containerPx.toFloat())
+    val sizePx = (containerPx * thumbFraction).coerceAtLeast(effectiveMinPx)
 
     val scrollFraction =
         if (maxScrollValue > 0) {
