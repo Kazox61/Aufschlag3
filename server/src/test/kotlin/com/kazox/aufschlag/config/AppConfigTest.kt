@@ -26,6 +26,8 @@ class AppConfigTest {
         assertFailsWith<IllegalStateException> {
             AppConfig.fromEnv(mapOf("JWT_SECRET" to secret, "MAIL_LOG_ONLY" to "false"))
         }
+        // a blank key is "not set", not a key
+        assertFailsWith<IllegalStateException> { AppConfig.fromEnv(mapOf("JWT_SECRET" to secret, "MAIL_API_KEY" to "  ")) }
         assertNull(AppConfig.fromEnv(mapOf("JWT_SECRET" to secret, "MAIL_LOG_ONLY" to "true")).mail.apiKey)
         assertEquals("re_key", AppConfig.fromEnv(mapOf("JWT_SECRET" to secret, "MAIL_API_KEY" to "re_key")).mail.apiKey)
     }

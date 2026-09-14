@@ -118,7 +118,19 @@ class AuthService(
                         expiresAt = now.plus(config.refreshTokenTtl.toJavaDuration()),
                     )
                     refreshTokens.setReplacedBy(claimed.id, successorId)
-                    RefreshOutcome.Rotated(claimed.userId, successorRaw)
+                    val pair = TokenPairResponse(
+                        accessToken = jwt.issueAccessToken(claimed.userId, now),
+                        refreshToken = successorRaw,
+                        expiresInSeconds = config.accessTokenTtl.inWholeSeconds,
+                    )
+                    // Cached before commit on purpose: a concurrent retry of the same token
+                    // can only take the GraceRetry path once this revocation is visible, i.e.
+                    // after commit — so the entry must already exist by then. Should the
+                    // commit fail, the entry is unreachable (the token stays unrevoked) and
+                    // the next successful rotation overwrites it.
+                    pruneGracePairs(now)
+                    gracePairs[presentedHash] = CachedPair(now, pair)
+                    RefreshOutcome.Rotated(pair)
                 }
 
                 claimed != null -> RefreshOutcome.Invalid // expired; already revoked by the claim
@@ -153,16 +165,7 @@ class AuthService(
         }
 
         return when (outcome) {
-            is RefreshOutcome.Rotated -> {
-                val pair = TokenPairResponse(
-                    accessToken = jwt.issueAccessToken(outcome.userId, now),
-                    refreshToken = outcome.successorRaw,
-                    expiresInSeconds = config.accessTokenTtl.inWholeSeconds,
-                )
-                pruneGracePairs(now)
-                gracePairs[presentedHash] = CachedPair(now, pair)
-                pair
-            }
+            is RefreshOutcome.Rotated -> outcome.pair
 
             RefreshOutcome.GraceRetry ->
                 gracePairs[presentedHash]
@@ -267,7 +270,7 @@ class AuthService(
     }
 
     private sealed interface RefreshOutcome {
-        data class Rotated(val userId: Uuid, val successorRaw: String) : RefreshOutcome
+        data class Rotated(val pair: TokenPairResponse) : RefreshOutcome
         data object GraceRetry : RefreshOutcome
         data object Invalid : RefreshOutcome
     }

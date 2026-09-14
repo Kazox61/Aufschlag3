@@ -45,7 +45,7 @@ data class AppConfig(
                 // No silent fallback: a production deploy that forgot MAIL_API_KEY would
                 // otherwise "send" password-reset tokens to its log. The :server:run Gradle
                 // task opts into log-only mail for dev.
-                apiKey = env["MAIL_API_KEY"]
+                apiKey = env["MAIL_API_KEY"]?.takeIf { it.isNotBlank() }
                     ?: if (env["MAIL_LOG_ONLY"]?.toBooleanStrictOrNull() == true) {
                         null
                     } else {
