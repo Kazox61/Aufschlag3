@@ -20,4 +20,7 @@ interface PasswordResetTokenRepository {
      * most one non-null result (single UPDATE .. WHERE used_at IS NULL).
      */
     fun claim(tokenHash: String, now: Instant): PasswordResetTokenRow?
+
+    /** Deletes rows whose `expires_at` is before [cutoff] (used or not). Returns rows deleted. */
+    fun deleteExpiredBefore(cutoff: Instant): Int
 }

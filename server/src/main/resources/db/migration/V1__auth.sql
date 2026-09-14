@@ -1,4 +1,4 @@
--- Auth schema per docs/milestone-1-auth.md §2.
+-- Auth schema.
 -- Conventions: UUID PKs, timestamptz (UTC), enums as text + CHECK,
 -- created_at/updated_at on all tables (updated_at maintained by trigger).
 

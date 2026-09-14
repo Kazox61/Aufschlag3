@@ -10,7 +10,7 @@ import javax.sql.DataSource
 /**
  * One Postgres container + migrated schema shared by every test in the JVM.
  * Testcontainers' Ryuk reaper removes the container after the test run.
- * Real Postgres only — the schema needs citext/gist, so no H2 anywhere (see PLANNING.md).
+ * Real Postgres only — the schema needs citext/gist, so no H2 anywhere.
  */
 object TestDatabase {
     private val container: PostgreSQLContainer<*> by lazy {

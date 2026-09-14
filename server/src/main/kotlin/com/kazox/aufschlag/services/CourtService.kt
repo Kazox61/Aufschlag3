@@ -3,7 +3,6 @@ package com.kazox.aufschlag.services
 import com.kazox.aufschlag.ApiException
 import com.kazox.aufschlag.api.Page
 import com.kazox.aufschlag.api.court.CourtResponse
-import com.kazox.aufschlag.api.court.CourtSurface
 import com.kazox.aufschlag.api.court.CreateCourtRequest
 import com.kazox.aufschlag.api.court.UpdateCourtRequest
 import com.kazox.aufschlag.db.withTransaction
@@ -30,7 +29,7 @@ class CourtService(
             val id = courts.create(
                 clubId = clubId,
                 name = name,
-                surface = request.surface.name,
+                surface = request.surface,
                 indoor = request.indoor,
                 slotMinutes = request.slotMinutes,
                 defaultPriceCents = request.defaultPriceCents,
@@ -51,7 +50,7 @@ class CourtService(
                 id = courtId,
                 clubId = clubId,
                 name = name,
-                surface = request.surface.name,
+                surface = request.surface,
                 indoor = request.indoor,
                 active = request.active,
                 slotMinutes = request.slotMinutes,
@@ -65,14 +64,10 @@ class CourtService(
     }
 
     suspend fun list(clubId: Uuid, limit: Int, cursor: String?): Page<CourtResponse> {
-        val cursorId = cursor?.let { runCatching { Uuid.parse(it) }.getOrNull() ?: throw ApiException.validation("Invalid cursor") }
-        val pageSize = limit.coerceIn(1, MAX_PAGE_SIZE)
-        val rows = withTransaction(db) { courts.listByClub(clubId, pageSize + 1, cursorId) }
-        val page = rows.take(pageSize)
-        return Page(
-            items = page.map { it.toResponse() },
-            nextCursor = if (rows.size > pageSize) page.last().id.toString() else null,
-        )
+        val keyset = parseKeysetCursor(cursor)
+        val pageSize = pageSizeOf(limit)
+        val rows = withTransaction(db) { courts.listByClub(clubId, pageSize + 1, keyset) }
+        return rows.toPage(pageSize, CourtRow::keyset, CourtRow::toResponse)
     }
 
     private fun validate(name: String, slotMinutes: Int, defaultPriceCents: Int, memberDiscountPct: Int, pausedDiscountPct: Int) {
@@ -82,17 +77,13 @@ class CourtService(
         if (memberDiscountPct !in 0..100) throw ApiException.validation("memberDiscountPct must be 0-100")
         if (pausedDiscountPct !in 0..100) throw ApiException.validation("pausedDiscountPct must be 0-100")
     }
-
-    companion object {
-        private const val MAX_PAGE_SIZE = 50
-    }
 }
 
 private fun CourtRow.toResponse() = CourtResponse(
     id = id.toString(),
     clubId = clubId.toString(),
     name = name,
-    surface = CourtSurface.valueOf(surface),
+    surface = surface,
     indoor = indoor,
     active = active,
     slotMinutes = slotMinutes,

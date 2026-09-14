@@ -11,18 +11,25 @@ data class AppConfig(
     val auth: AuthConfig,
     val mail: MailConfig,
     /** Origins (`scheme://host[:port]`) allowed to call the API from a browser — the admin
-     *  web app (docs/admin-webapp.md). Mobile clients don't send an Origin header and are
+     *  web app. Mobile clients don't send an Origin header and are
      *  unaffected. */
     val corsAllowedOrigins: List<String>,
+    /** Trust `X-Forwarded-*`/`Forwarded` headers for the client IP (rate limiting) and scheme.
+     *  Only set behind a reverse proxy that strips these headers from incoming requests —
+     *  trusting them on a directly exposed server lets any client spoof its IP. */
+    val trustProxyHeaders: Boolean = false,
 ) {
     companion object {
-        /** The adminApp dev server (`:adminApp:wasmJsBrowserDevelopmentRun`); the Ktor
+        /** The admin web app's dev server (`:app:webApp:wasmJsBrowserDevelopmentRun`); the Ktor
          *  server itself owns 8080. */
         val DEFAULT_CORS_ORIGINS = listOf("http://localhost:8081", "http://127.0.0.1:8081")
 
         /** Defaults match docker-compose.yml so a plain `./gradlew :server:run` works in dev. */
         fun fromEnv(env: Map<String, String> = System.getenv()): AppConfig = AppConfig(
-            port = env["PORT"]?.toInt() ?: 8080,
+            port = env["PORT"]?.let {
+                it.toIntOrNull()?.takeIf { port -> port in 1..65535 }
+                    ?: error("PORT must be a number in 1..65535, was '$it'")
+            } ?: 8080,
             database = DatabaseConfig(
                 url = env["DATABASE_URL"] ?: "jdbc:postgresql://localhost:5432/aufschlag",
                 username = env["DATABASE_USER"] ?: "aufschlag",
@@ -43,6 +50,9 @@ data class AppConfig(
                 ?.map { it.trim() }
                 ?.filter { it.isNotEmpty() }
                 ?: DEFAULT_CORS_ORIGINS,
+            trustProxyHeaders = env["TRUST_PROXY_HEADERS"]?.let {
+                it.toBooleanStrictOrNull() ?: error("TRUST_PROXY_HEADERS must be 'true' or 'false', was '$it'")
+            } ?: false,
         )
     }
 }

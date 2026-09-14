@@ -4,6 +4,7 @@ import com.kazox.aufschlag.db.PasswordResetTokensTable
 import com.kazox.aufschlag.repositories.PasswordResetTokenRepository
 import com.kazox.aufschlag.repositories.PasswordResetTokenRow
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.updateReturning
 import java.time.Instant
@@ -36,4 +37,7 @@ class PostgresPasswordResetTokenRepository : PasswordResetTokenRepository {
                 usedAt = it[PasswordResetTokensTable.usedAt],
             )
         }
+
+    override fun deleteExpiredBefore(cutoff: Instant): Int =
+        PasswordResetTokensTable.deleteWhere { PasswordResetTokensTable.expiresAt less cutoff }
 }

@@ -17,5 +17,5 @@ object Tokens {
     fun sha256(token: String): String =
         MessageDigest.getInstance("SHA-256")
             .digest(token.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
+            .toHexString()
 }

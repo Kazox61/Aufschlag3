@@ -18,7 +18,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
 /** GET /clubs/{clubId}/courts/{courtId}/bookings?date= — the admin day schedule
- *  (docs/admin-webapp.md §1.4): unlike the public slots endpoint it exposes booking
+ *  (the admin day schedule): unlike the public slots endpoint it exposes booking
  *  ids/owners/payment so an admin can cancel, un-block, and mark fees paid. */
 class CourtDayBookingsTest {
 

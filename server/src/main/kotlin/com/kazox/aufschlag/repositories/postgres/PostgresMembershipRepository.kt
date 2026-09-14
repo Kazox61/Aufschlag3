@@ -1,9 +1,12 @@
 package com.kazox.aufschlag.repositories.postgres
 
+import com.kazox.aufschlag.api.club.ClubStatus
+import com.kazox.aufschlag.api.club.MembershipRole
+import com.kazox.aufschlag.api.club.MembershipStatus
 import com.kazox.aufschlag.db.ClubsTable
 import com.kazox.aufschlag.db.MembershipsTable
 import com.kazox.aufschlag.db.UsersTable
-import com.kazox.aufschlag.repositories.ClubRow
+import com.kazox.aufschlag.repositories.Keyset
 import com.kazox.aufschlag.repositories.MembershipRepository
 import com.kazox.aufschlag.repositories.MembershipRow
 import com.kazox.aufschlag.repositories.MembershipWithClubRow
@@ -20,8 +23,8 @@ class PostgresMembershipRepository : MembershipRepository {
     override fun create(
         userId: Uuid,
         clubId: Uuid,
-        role: String,
-        status: String,
+        role: MembershipRole,
+        status: MembershipStatus,
         applicationDataJson: String?,
     ): Uuid {
         val id = Uuid.random()
@@ -41,7 +44,7 @@ class PostgresMembershipRepository : MembershipRepository {
             .where {
                 (MembershipsTable.userId eq userId) and
                     (MembershipsTable.clubId eq clubId) and
-                    (MembershipsTable.status neq STATUS_ENDED)
+                    (MembershipsTable.status neq MembershipStatus.ENDED)
             }
             .singleOrNull()
             ?.toMembershipRow()
@@ -51,7 +54,7 @@ class PostgresMembershipRepository : MembershipRepository {
             .where {
                 (MembershipsTable.userId eq userId) and
                     (MembershipsTable.clubId eq clubId) and
-                    (MembershipsTable.status eq STATUS_ACTIVE)
+                    (MembershipsTable.status eq MembershipStatus.ACTIVE)
             }
             .singleOrNull()
             ?.toMembershipRow()
@@ -70,9 +73,9 @@ class PostgresMembershipRepository : MembershipRepository {
             .singleOrNull()
             ?.toMembershipWithUserRow()
 
-    override fun updateMember(id: Uuid, role: String?, status: String?): Int =
+    override fun updateMember(id: Uuid, role: MembershipRole?, status: MembershipStatus?): Int =
         MembershipsTable.update({
-            (MembershipsTable.id eq id) and (MembershipsTable.status neq STATUS_ENDED)
+            (MembershipsTable.id eq id) and (MembershipsTable.status neq MembershipStatus.ENDED)
         }) {
             if (role != null) it[MembershipsTable.role] = role
             if (status != null) it[MembershipsTable.status] = status
@@ -80,17 +83,17 @@ class PostgresMembershipRepository : MembershipRepository {
 
     override fun approve(id: Uuid): Int =
         MembershipsTable.update({
-            (MembershipsTable.id eq id) and (MembershipsTable.status eq STATUS_PENDING)
+            (MembershipsTable.id eq id) and (MembershipsTable.status eq MembershipStatus.PENDING)
         }) {
-            it[status] = STATUS_ACTIVE
+            it[status] = MembershipStatus.ACTIVE
         }
 
     override fun deletePending(id: Uuid): Int =
         MembershipsTable.deleteWhere {
-            (MembershipsTable.id eq id) and (MembershipsTable.status eq STATUS_PENDING)
+            (MembershipsTable.id eq id) and (MembershipsTable.status eq MembershipStatus.PENDING)
         }
 
-    override fun transitionStatus(userId: Uuid, clubId: Uuid, from: String, to: String): Int =
+    override fun transitionStatus(userId: Uuid, clubId: Uuid, from: MembershipStatus, to: MembershipStatus): Int =
         MembershipsTable.update({
             (MembershipsTable.userId eq userId) and (MembershipsTable.clubId eq clubId) and
                 (MembershipsTable.status eq from)
@@ -100,10 +103,10 @@ class PostgresMembershipRepository : MembershipRepository {
 
     override fun listByClub(
         clubId: Uuid,
-        status: String?,
-        excludeStatuses: Set<String>,
+        status: MembershipStatus?,
+        excludeStatuses: Set<MembershipStatus>,
         limit: Int,
-        cursor: Uuid?,
+        cursor: Keyset?,
     ): List<MembershipWithUserRow> =
         MembershipsTable
             .innerJoin(UsersTable) { MembershipsTable.userId eq UsersTable.id }
@@ -116,10 +119,10 @@ class PostgresMembershipRepository : MembershipRepository {
                 } else {
                     Op.TRUE
                 }
-                val cursorCondition = cursor?.let { MembershipsTable.id greater it } ?: Op.TRUE
+                val cursorCondition = keysetAfter(MembershipsTable.createdAt, MembershipsTable.id, cursor)
                 clubCondition and statusCondition and excludeCondition and cursorCondition
             }
-            .orderBy(MembershipsTable.id)
+            .orderBy(*keysetOrder(MembershipsTable.createdAt, MembershipsTable.id))
             .limit(limit)
             .map { it.toMembershipWithUserRow() }
 
@@ -129,9 +132,9 @@ class PostgresMembershipRepository : MembershipRepository {
             .selectAll()
             .where {
                 (MembershipsTable.userId eq userId) and
-                    (MembershipsTable.role eq ROLE_OWNER) and
-                    (MembershipsTable.status neq STATUS_ENDED) and
-                    (ClubsTable.status neq STATUS_ARCHIVED)
+                    (MembershipsTable.role eq MembershipRole.OWNER) and
+                    (MembershipsTable.status neq MembershipStatus.ENDED) and
+                    (ClubsTable.status neq ClubStatus.ARCHIVED)
             }
             .map { it[MembershipsTable.clubId] }
 
@@ -139,8 +142,8 @@ class PostgresMembershipRepository : MembershipRepository {
             MembershipsTable.selectAll()
                 .where {
                     (MembershipsTable.clubId eq clubId) and
-                        (MembershipsTable.role eq ROLE_OWNER) and
-                        (MembershipsTable.status neq STATUS_ENDED) and
+                        (MembershipsTable.role eq MembershipRole.OWNER) and
+                        (MembershipsTable.status neq MembershipStatus.ENDED) and
                         (MembershipsTable.userId neq userId)
                 }
                 .empty()
@@ -149,9 +152,9 @@ class PostgresMembershipRepository : MembershipRepository {
 
     override fun listByUser(
         userId: Uuid,
-        excludeStatuses: Set<String>,
+        excludeStatuses: Set<MembershipStatus>,
         limit: Int,
-        cursor: Uuid?,
+        cursor: Keyset?,
     ): List<MembershipWithClubRow> =
         MembershipsTable
             .innerJoin(ClubsTable) { MembershipsTable.clubId eq ClubsTable.id }
@@ -163,10 +166,10 @@ class PostgresMembershipRepository : MembershipRepository {
                 } else {
                     Op.TRUE
                 }
-                val cursorCondition = cursor?.let { MembershipsTable.id greater it } ?: Op.TRUE
+                val cursorCondition = keysetAfter(MembershipsTable.createdAt, MembershipsTable.id, cursor)
                 userCondition and excludeCondition and cursorCondition
             }
-            .orderBy(MembershipsTable.id)
+            .orderBy(*keysetOrder(MembershipsTable.createdAt, MembershipsTable.id))
             .limit(limit)
             .map { MembershipWithClubRow(it.toMembershipRow(), it.toClubRow()) }
 
@@ -183,29 +186,6 @@ class PostgresMembershipRepository : MembershipRepository {
         role = this[MembershipsTable.role],
         status = this[MembershipsTable.status],
         applicationDataJson = this[MembershipsTable.applicationData],
+        createdAt = this[MembershipsTable.createdAt],
     )
-
-    private fun ResultRow.toClubRow() = ClubRow(
-        id = this[ClubsTable.id],
-        name = this[ClubsTable.name],
-        slug = this[ClubsTable.slug],
-        plan = this[ClubsTable.plan],
-        status = this[ClubsTable.status],
-        timezone = this[ClubsTable.timezone],
-        settingsJson = this[ClubsTable.settings],
-        billingRef = this[ClubsTable.billingRef],
-        address = this[ClubsTable.address],
-        contactEmail = this[ClubsTable.contactEmail],
-        phone = this[ClubsTable.phone],
-        website = this[ClubsTable.website],
-        logoUrl = this[ClubsTable.logoUrl],
-    )
-
-    companion object {
-        const val ROLE_OWNER = "OWNER"
-        const val STATUS_PENDING = "PENDING"
-        const val STATUS_ACTIVE = "ACTIVE"
-        const val STATUS_ENDED = "ENDED"
-        const val STATUS_ARCHIVED = "ARCHIVED"
-    }
 }

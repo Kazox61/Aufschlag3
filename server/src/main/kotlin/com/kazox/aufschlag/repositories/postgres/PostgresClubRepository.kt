@@ -1,8 +1,10 @@
 package com.kazox.aufschlag.repositories.postgres
 
+import com.kazox.aufschlag.api.club.ClubStatus
 import com.kazox.aufschlag.db.ClubsTable
 import com.kazox.aufschlag.repositories.ClubRepository
 import com.kazox.aufschlag.repositories.ClubRow
+import com.kazox.aufschlag.repositories.Keyset
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -29,10 +31,10 @@ class PostgresClubRepository : ClubRepository {
     override fun findBySlug(slug: String): ClubRow? =
         ClubsTable.selectAll().where { ClubsTable.slug eq slug }.singleOrNull()?.toClubRow()
 
-    override fun search(query: String?, excludeStatuses: Set<String>, limit: Int, cursor: Uuid?): List<ClubRow> =
+    override fun search(query: String?, excludeStatuses: Set<ClubStatus>, limit: Int, cursor: Keyset?): List<ClubRow> =
         ClubsTable.selectAll()
             .where {
-                val cursorCondition = cursor?.let { ClubsTable.id greater it } ?: Op.TRUE
+                val cursorCondition = keysetAfter(ClubsTable.createdAt, ClubsTable.id, cursor)
                 val trimmed = query?.trim()
                 val searchCondition = if (trimmed.isNullOrEmpty()) {
                     Op.TRUE
@@ -47,7 +49,7 @@ class PostgresClubRepository : ClubRepository {
                 }
                 cursorCondition and searchCondition and visibilityCondition
             }
-            .orderBy(ClubsTable.id)
+            .orderBy(*keysetOrder(ClubsTable.createdAt, ClubsTable.id))
             .limit(limit)
             .map { it.toClubRow() }
 
@@ -70,19 +72,4 @@ class PostgresClubRepository : ClubRepository {
         }
     }
 
-    private fun ResultRow.toClubRow() = ClubRow(
-        id = this[ClubsTable.id],
-        name = this[ClubsTable.name],
-        slug = this[ClubsTable.slug],
-        plan = this[ClubsTable.plan],
-        status = this[ClubsTable.status],
-        timezone = this[ClubsTable.timezone],
-        settingsJson = this[ClubsTable.settings],
-        billingRef = this[ClubsTable.billingRef],
-        address = this[ClubsTable.address],
-        contactEmail = this[ClubsTable.contactEmail],
-        phone = this[ClubsTable.phone],
-        website = this[ClubsTable.website],
-        logoUrl = this[ClubsTable.logoUrl],
-    )
 }

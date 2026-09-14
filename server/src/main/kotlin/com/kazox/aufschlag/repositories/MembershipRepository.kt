@@ -1,15 +1,21 @@
 package com.kazox.aufschlag.repositories
 
+import com.kazox.aufschlag.api.club.MembershipRole
+import com.kazox.aufschlag.api.club.MembershipStatus
+import java.time.Instant
 import kotlin.uuid.Uuid
 
 data class MembershipRow(
     val id: Uuid,
     val userId: Uuid,
     val clubId: Uuid,
-    val role: String,
-    val status: String,
+    val role: MembershipRole,
+    val status: MembershipStatus,
     val applicationDataJson: String?,
-)
+    val createdAt: Instant,
+) {
+    val keyset: Keyset get() = Keyset(createdAt, id)
+}
 
 data class MembershipWithClubRow(
     val membership: MembershipRow,
@@ -26,7 +32,7 @@ data class MembershipWithUserRow(
 
 /** All methods must be called inside a [com.kazox.aufschlag.db.withTransaction] block. */
 interface MembershipRepository {
-    fun create(userId: Uuid, clubId: Uuid, role: String, status: String, applicationDataJson: String?): Uuid
+    fun create(userId: Uuid, clubId: Uuid, role: MembershipRole, status: MembershipStatus, applicationDataJson: String?): Uuid
 
     /** The caller's non-ENDED row for this club, if any — re-apply eligibility (§ partial unique index). */
     fun findNonEnded(userId: Uuid, clubId: Uuid): MembershipRow?
@@ -45,7 +51,7 @@ interface MembershipRepository {
     /** Atomic compare-and-set: updates the caller's non-ENDED row for this club from [from] to
      *  [to] (e.g. pause/resume ACTIVE<->PAUSED) only if it's still in status [from]. Returns rows
      *  updated (0 if not a member here, or the status already moved on). */
-    fun transitionStatus(userId: Uuid, clubId: Uuid, from: String, to: String): Int
+    fun transitionStatus(userId: Uuid, clubId: Uuid, from: MembershipStatus, to: MembershipStatus): Int
 
     /** [findByIdAndClub] joined with the member's name/email — the admin decision/update
      *  responses (same join as [listByClub]). */
@@ -54,30 +60,30 @@ interface MembershipRepository {
     /** Sets role and/or status (null = unchanged) on membership [id]. The `status != ENDED`
      *  guard lives in the WHERE clause so an ENDED history row can never be resurrected, even
      *  in a race with a concurrent end. Returns rows updated. */
-    fun updateMember(id: Uuid, role: String?, status: String?): Int
+    fun updateMember(id: Uuid, role: MembershipRole?, status: MembershipStatus?): Int
 
-    /** Keyset pagination ordered by id; [cursor] is the last id seen on the previous page.
-     *  [status] restricts to exactly that status (e.g. pending applications); [excludeStatuses]
+    /** Keyset pagination ordered `(created_at, id)` — application/join order; [cursor] is the
+     *  last row of the previous page. [status] restricts to exactly that status (e.g. pending applications); [excludeStatuses]
      *  filters at the DB level so limit/cursor stay pagination-correct. Joined with the member's
      *  name/email — this list only feeds admin UIs (applications/members). */
     fun listByClub(
         clubId: Uuid,
-        status: String?,
-        excludeStatuses: Set<String> = emptySet(),
+        status: MembershipStatus?,
+        excludeStatuses: Set<MembershipStatus> = emptySet(),
         limit: Int,
-        cursor: Uuid?,
+        cursor: Keyset?,
     ): List<MembershipWithUserRow>
 
     /** True if [userId] is OWNER of a non-archived club with no other live OWNER — GDPR delete guard. */
     fun isSoleActiveOwner(userId: Uuid): Boolean
 
-    /** Keyset pagination ordered by membership id, joined with each row's club — GET
+    /** Keyset pagination ordered `(created_at, id)`, joined with each row's club — GET
      *  /me/memberships (the club switcher). [excludeStatuses] filters at the DB level, same
      *  convention as [listByClub]. */
     fun listByUser(
         userId: Uuid,
-        excludeStatuses: Set<String> = emptySet(),
+        excludeStatuses: Set<MembershipStatus> = emptySet(),
         limit: Int,
-        cursor: Uuid?,
+        cursor: Keyset?,
     ): List<MembershipWithClubRow>
 }

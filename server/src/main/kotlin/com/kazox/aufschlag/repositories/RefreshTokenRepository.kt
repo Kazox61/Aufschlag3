@@ -28,4 +28,8 @@ interface RefreshTokenRepository {
     fun findByHash(tokenHash: String): RefreshTokenRow?
     fun revokeFamily(familyId: Uuid, now: Instant)
     fun revokeAllForUser(userId: Uuid, now: Instant)
+
+    /** Deletes rows whose `expires_at` is before [cutoff] — [com.kazox.aufschlag.services.TokenMaintenance].
+     *  Returns rows deleted. */
+    fun deleteExpiredBefore(cutoff: Instant): Int
 }

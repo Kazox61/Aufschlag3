@@ -1,5 +1,6 @@
 package com.kazox.aufschlag
 
+import com.kazox.aufschlag.BackgroundScope
 import com.kazox.aufschlag.config.AuthConfig
 import com.kazox.aufschlag.mail.Mailer
 import com.kazox.aufschlag.repositories.AuthIdentityRepository
@@ -32,17 +33,25 @@ import com.kazox.aufschlag.services.LoginBackoff
 import com.kazox.aufschlag.services.MembershipService
 import com.kazox.aufschlag.services.PriceRuleService
 import com.kazox.aufschlag.services.SlotAvailabilityService
+import com.kazox.aufschlag.services.TokenMaintenance
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
+import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.dsl.singleOf
+import org.koin.dsl.bind
 import org.koin.dsl.module
 import javax.sql.DataSource
+import kotlin.time.Clock
 
 fun appModule(dataSource: DataSource, database: Database, auth: AuthConfig, mailer: Mailer): Module = module {
     single<DataSource> { dataSource }
     single<Database> { database }
     single<AuthConfig> { auth }
     single<Mailer> { mailer }
+    single<Clock> { Clock.System }
+    // MembershipService (and AuthService) take a plain CoroutineScope for their mail sends;
+    // the one BackgroundScope is drained on shutdown, so it must be the instance they get.
+    single { BackgroundScope() } bind CoroutineScope::class
 
     // repositories
     single<UserRepository> { PostgresUserRepository() }
@@ -60,9 +69,17 @@ fun appModule(dataSource: DataSource, database: Database, auth: AuthConfig, mail
     singleOf(::JwtService)
     single { LoginBackoff() }
 
-    // services
+    // services — singleOf resolves every constructor parameter by type. AuthService and
+    // TokenMaintenance are spelled out because their trailing clock parameter is a defaulted
+    // test seam, not an injectable type.
     singleOf(::HealthService)
+    single { TokenMaintenance(db = get(), refreshTokens = get(), resetTokens = get()) }
     singleOf(::EntitlementService)
+    singleOf(::ClubService)
+    singleOf(::CourtService)
+    singleOf(::PriceRuleService)
+    singleOf(::SlotAvailabilityService)
+    singleOf(::BookingService)
     single {
         AuthService(
             db = get(),
@@ -77,63 +94,8 @@ fun appModule(dataSource: DataSource, database: Database, auth: AuthConfig, mail
             backoff = get(),
             mailer = get(),
             config = get(),
+            mailScope = get(),
         )
     }
-    single {
-        ClubService(
-            db = get(),
-            clubs = get(),
-            memberships = get(),
-            users = get(),
-            entitlements = get(),
-        )
-    }
-    single {
-        MembershipService(
-            db = get(),
-            clubs = get(),
-            memberships = get(),
-            users = get(),
-            entitlements = get(),
-            mailer = get(),
-        )
-    }
-    single {
-        CourtService(
-            db = get(),
-            clubs = get(),
-            courts = get(),
-            entitlements = get(),
-        )
-    }
-    single {
-        PriceRuleService(
-            db = get(),
-            clubs = get(),
-            courts = get(),
-            priceRules = get(),
-            entitlements = get(),
-        )
-    }
-    single {
-        SlotAvailabilityService(
-            db = get(),
-            clubs = get(),
-            courts = get(),
-            priceRules = get(),
-            memberships = get(),
-            bookings = get(),
-        )
-    }
-    single {
-        BookingService(
-            db = get(),
-            clubs = get(),
-            courts = get(),
-            priceRules = get(),
-            memberships = get(),
-            bookings = get(),
-            entitlements = get(),
-        )
-    }
+    singleOf(::MembershipService)
 }

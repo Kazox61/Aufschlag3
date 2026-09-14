@@ -9,6 +9,8 @@ import io.ktor.client.call.body
 import io.ktor.http.HttpStatusCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class CourtFlowTest {
@@ -36,6 +38,29 @@ class CourtFlowTest {
 
         val listed = client.listCourts(ownerToken, club.id).body<com.kazox.aufschlag.api.Page<CourtResponse>>()
         assertTrue(listed.items.any { it.id == court.id })
+    }
+
+    @Test
+    fun `courts list in creation order and paginate with limit and cursor`() = authTestApp { client ->
+        val (club, ownerToken) = client.newClub()
+        val names = listOf("Platz 1", "Platz 2", "Platz 3")
+        val createdIds = names.map { client.createCourt(ownerToken, club.id, name = it).body<CourtResponse>().id }
+
+        val firstPage = client.listCourts(ownerToken, club.id, limit = 2).body<com.kazox.aufschlag.api.Page<CourtResponse>>()
+        assertEquals(names.take(2), firstPage.items.map { it.name })
+        assertNotNull(firstPage.nextCursor)
+
+        val secondPage = client.listCourts(ownerToken, club.id, limit = 2, cursor = firstPage.nextCursor)
+            .body<com.kazox.aufschlag.api.Page<CourtResponse>>()
+        assertEquals(names.drop(2), secondPage.items.map { it.name })
+        assertNull(secondPage.nextCursor)
+        assertEquals(createdIds, (firstPage.items + secondPage.items).map { it.id })
+    }
+
+    @Test
+    fun `a malformed cursor is a 400`() = authTestApp { client ->
+        val (club, ownerToken) = client.newClub()
+        assertEquals(HttpStatusCode.BadRequest, client.listCourts(ownerToken, club.id, cursor = "not-a-cursor").status)
     }
 
     @Test

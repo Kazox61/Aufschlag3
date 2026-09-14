@@ -1,5 +1,7 @@
 package com.kazox.aufschlag
 
+import com.kazox.aufschlag.api.ApiError
+import com.kazox.aufschlag.api.ErrorCode
 import com.kazox.aufschlag.api.auth.TokenPairResponse
 import com.kazox.aufschlag.api.booking.DayAvailabilityResponse
 import com.kazox.aufschlag.api.club.ClubResponse
@@ -139,6 +141,14 @@ class SlotAvailabilityTest {
         val morningSlot = day.slots.first { it.startsAt.toString() == "${monday}T08:00:00Z" }
         assertEquals(2400, eveningSlot.priceCents)
         assertEquals(1200, morningSlot.priceCents)
+    }
+
+    @Test
+    fun `a malformed date is a 400, not a 500`() = authTestApp { client ->
+        val (club, ownerToken, court) = client.newClubWithCourt()
+        val response = client.getSlots(ownerToken, club.id, court.id, "2026-13-45")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals(ErrorCode.VALIDATION_FAILED, response.body<ApiError>().code)
     }
 
     @Test

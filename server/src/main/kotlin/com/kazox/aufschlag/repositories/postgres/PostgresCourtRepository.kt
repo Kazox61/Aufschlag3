@@ -1,8 +1,10 @@
 package com.kazox.aufschlag.repositories.postgres
 
+import com.kazox.aufschlag.api.court.CourtSurface
 import com.kazox.aufschlag.db.CourtsTable
 import com.kazox.aufschlag.repositories.CourtRepository
 import com.kazox.aufschlag.repositories.CourtRow
+import com.kazox.aufschlag.repositories.Keyset
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -14,7 +16,7 @@ class PostgresCourtRepository : CourtRepository {
     override fun create(
         clubId: Uuid,
         name: String,
-        surface: String,
+        surface: CourtSurface,
         indoor: Boolean,
         slotMinutes: Int,
         defaultPriceCents: Int,
@@ -46,7 +48,7 @@ class PostgresCourtRepository : CourtRepository {
         id: Uuid,
         clubId: Uuid,
         name: String,
-        surface: String,
+        surface: CourtSurface,
         indoor: Boolean,
         active: Boolean,
         slotMinutes: Int,
@@ -65,14 +67,14 @@ class PostgresCourtRepository : CourtRepository {
             it[CourtsTable.pausedDiscountPct] = pausedDiscountPct
         }
 
-    override fun listByClub(clubId: Uuid, limit: Int, cursor: Uuid?): List<CourtRow> =
+    override fun listByClub(clubId: Uuid, limit: Int, cursor: Keyset?): List<CourtRow> =
         CourtsTable.selectAll()
             .where {
                 val clubCondition = CourtsTable.clubId eq clubId
-                val cursorCondition = cursor?.let { CourtsTable.id greater it } ?: Op.TRUE
+                val cursorCondition = keysetAfter(CourtsTable.createdAt, CourtsTable.id, cursor)
                 clubCondition and cursorCondition
             }
-            .orderBy(CourtsTable.id)
+            .orderBy(*keysetOrder(CourtsTable.createdAt, CourtsTable.id))
             .limit(limit)
             .map { it.toCourtRow() }
 
@@ -87,5 +89,6 @@ class PostgresCourtRepository : CourtRepository {
         defaultPriceCents = this[CourtsTable.defaultPriceCents],
         memberDiscountPct = this[CourtsTable.memberDiscountPct],
         pausedDiscountPct = this[CourtsTable.pausedDiscountPct],
+        createdAt = this[CourtsTable.createdAt],
     )
 }

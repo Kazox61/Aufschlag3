@@ -1,5 +1,7 @@
 package com.kazox.aufschlag.repositories
 
+import com.kazox.aufschlag.api.club.ClubStatus
+import java.time.Instant
 import kotlin.uuid.Uuid
 
 data class ClubRow(
@@ -7,7 +9,7 @@ data class ClubRow(
     val name: String,
     val slug: String,
     val plan: String,
-    val status: String,
+    val status: ClubStatus,
     val timezone: String,
     val settingsJson: String,
     val billingRef: String?,
@@ -16,7 +18,10 @@ data class ClubRow(
     val phone: String?,
     val website: String?,
     val logoUrl: String?,
-)
+    val createdAt: Instant,
+) {
+    val keyset: Keyset get() = Keyset(createdAt, id)
+}
 
 /** All methods must be called inside a [com.kazox.aufschlag.db.withTransaction] block. */
 interface ClubRepository {
@@ -24,11 +29,11 @@ interface ClubRepository {
     fun findById(id: Uuid): ClubRow?
     fun findBySlug(slug: String): ClubRow?
 
-    /** Keyset pagination ordered by id; [cursor] is the last id seen on the previous page.
-     *  [excludeStatuses] filters at the DB level so limit/cursor stay pagination-correct
+    /** Keyset pagination ordered `(created_at, id)`; [cursor] is the last row of the previous
+     *  page. [excludeStatuses] filters at the DB level so limit/cursor stay pagination-correct
      *  (the caller sources this from [com.kazox.aufschlag.services.EntitlementService] —
-     *  ARCHIVED clubs are invisible in the public directory, PLANNING.md). */
-    fun search(query: String?, excludeStatuses: Set<String>, limit: Int, cursor: Uuid?): List<ClubRow>
+     *  ARCHIVED clubs are invisible in the public directory). */
+    fun search(query: String?, excludeStatuses: Set<ClubStatus>, limit: Int, cursor: Keyset?): List<ClubRow>
 
     /** The "Vereinsdaten" admin settings form — plain profile fields, not [ClubRow.settingsJson]. */
     fun updateProfile(

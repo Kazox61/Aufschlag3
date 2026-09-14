@@ -8,6 +8,7 @@ import com.kazox.aufschlag.api.auth.TokenPairResponse
 import com.kazox.aufschlag.api.auth.UserResponse
 import com.kazox.aufschlag.auth.RegistrationRules
 import com.kazox.aufschlag.config.AuthConfig
+import com.kazox.aufschlag.db.isUniqueViolation
 import com.kazox.aufschlag.db.withTransaction
 import com.kazox.aufschlag.mail.Mailer
 import com.kazox.aufschlag.repositories.AuthIdentityRepository
@@ -21,11 +22,8 @@ import com.kazox.aufschlag.security.PasswordHasher
 import com.kazox.aufschlag.security.Tokens
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.jetbrains.exposed.v1.jdbc.Database
-import java.sql.SQLException
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.toJavaDuration
@@ -44,9 +42,9 @@ class AuthService(
     private val backoff: LoginBackoff,
     private val mailer: Mailer,
     private val config: AuthConfig,
-    private val clock: () -> Instant = Instant::now,
     /** Outlives the request: mail sends must not block (or fail) the response. */
-    private val mailScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val mailScope: CoroutineScope,
+    private val clock: () -> Instant = Instant::now,
 ) {
     /** Presented-token-hash → pair issued for it; serves idempotent retries in the grace window. */
     private val gracePairs = ConcurrentHashMap<String, CachedPair>()
@@ -58,20 +56,22 @@ class AuthService(
         validateEmail(email)
         validateName(request.name)
         validatePassword(request.password)
+        // Existing account with this email — ANY provider — must 409: attaching a password to
+        // a social-only account would hand it to whoever knows the email. Checked before the
+        // ~250 ms bcrypt hash so a duplicate email costs one cheap lookup, not CPU.
+        if (withTransaction(db) { users.findByEmail(email) } != null) throw emailTaken()
         val passwordHash = hasher.hash(request.password)
 
         val userId = try {
             withTransaction(db) {
-                // Existing account with this email — ANY provider — must 409: attaching a
-                // password to a social-only account would hand it to whoever knows the email.
-                if (users.findByEmail(email) != null) throw emailTaken()
+                if (users.findByEmail(email) != null) throw emailTaken() // registered meanwhile
                 val userId = users.create(email, request.name.trim())
                 identities.createEmailIdentity(userId, email, passwordHash)
                 userId
             }
         } catch (e: Exception) {
             // concurrent register with the same email loses the citext unique index race
-            if (isUniqueViolation(e)) throw emailTaken() else throw e
+            if (e.isUniqueViolation()) throw emailTaken() else throw e
         }
         return issueNewFamily(userId)
     }
@@ -224,14 +224,18 @@ class AuthService(
      *  attempt either finishes and commits before this transaction starts its cancel-scan (and
      *  gets caught by it) or is blocked until this transaction's delete has committed — either
      *  way no booking can be created in the gap and survive as an anonymized "ghost" booking
-     *  blocking a court forever (docs/milestone-1-auth.md). */
+     *  blocking a court forever. */
     suspend fun deleteAccount(userId: Uuid, password: String) {
-        withTransaction(db) {
+        val identity = withTransaction(db) {
             val user = users.findById(userId) ?: throw ApiException.unauthorized("Account no longer exists")
-            val identity = identities.findEmailIdentity(user.email)
-            if (identity == null || !hasher.verify(password, identity.passwordHash)) {
-                throw ApiException.unauthorized("Incorrect password")
-            }
+            identities.findEmailIdentity(user.email)
+        }
+        // bcrypt is CPU-bound and suspends onto Dispatchers.Default — never inside a transaction
+        if (identity == null || !hasher.verify(password, identity.passwordHash)) {
+            throw ApiException.unauthorized("Incorrect password")
+        }
+        withTransaction(db) {
+            if (users.findById(userId) == null) throw ApiException.unauthorized("Account no longer exists")
             if (memberships.isSoleActiveOwner(userId)) {
                 throw ApiException.forbidden("Transfer club ownership before deleting your account")
             }
@@ -273,9 +277,6 @@ class AuthService(
 
     private fun invalidToken() =
         ApiException(HttpStatusCode.Unauthorized, ErrorCode.INVALID_TOKEN, "Invalid or expired token")
-
-    private fun isUniqueViolation(e: Throwable): Boolean =
-        generateSequence(e) { it.cause }.any { it is SQLException && it.sqlState == "23505" }
 
     private fun validateEmail(email: String) {
         if (email.length > RegistrationRules.EMAIL_MAX_LENGTH || !email.matches(RegistrationRules.EMAIL_REGEX)) {

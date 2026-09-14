@@ -1,4 +1,4 @@
--- Courts, price rules & bookings schema per docs/milestone-1-auth.md §2 ("Specced now,
+-- Courts, price rules & bookings schema ("Specced now,
 -- migrated in milestone 2"). Conventions: UUID PKs, timestamptz (UTC), enums as text + CHECK,
 -- created_at/updated_at on all tables (updated_at maintained by the V1 trigger fn).
 

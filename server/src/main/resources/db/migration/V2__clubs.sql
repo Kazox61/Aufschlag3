@@ -1,4 +1,4 @@
--- Clubs & memberships schema per docs/milestone-1-auth.md §2.
+-- Clubs & memberships schema.
 -- Conventions: UUID PKs, timestamptz (UTC), enums as text + CHECK,
 -- created_at/updated_at on all tables (updated_at maintained by the V1 trigger fn).
 

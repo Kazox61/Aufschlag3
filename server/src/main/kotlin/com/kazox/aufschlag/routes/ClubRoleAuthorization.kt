@@ -15,8 +15,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.ktor.ext.inject
 
 /**
- * Club-scoped tenant-isolation guard (docs/milestone-1-auth.md §3: "club-scoped authorization
- * plugin (`withClubRole(ADMIN) { }`)"). Wraps a route subtree so every request under it 404s if
+ * Club-scoped tenant-isolation guard. Wraps a route subtree so every request under it 404s if
  * the `{clubId}` path segment doesn't name a real club, and 403s unless the caller is an ACTIVE
  * member holding at least [minRole] in it. Must sit inside `authenticate("auth-jwt")`, below a
  * route where `{clubId}` is already a resolved path parameter.
@@ -24,7 +23,7 @@ import org.koin.ktor.ext.inject
  * Centralizing the check here — instead of each service re-implementing it, as
  * `MembershipService` used to — is what lets milestone-2 routes (courts/bookings) get tenant
  * isolation for free by wrapping in this, rather than every new service needing to remember it
- * itself (CLAUDE.md: "every request must check the caller's membership in that club").
+ * itself — every request under a club must check the caller's membership in that club.
  */
 fun Route.withClubRole(minRole: MembershipRole, build: Route.() -> Unit): Route {
     val guarded = createChild(ClubRoleRouteSelector(minRole))
@@ -64,8 +63,7 @@ private val ClubRoleAuthorization =
                 clubs.findById(clubId) ?: throw ApiException.notFound("Club not found")
                 val membership = memberships.findActive(userId, clubId)
                     ?: throw ApiException.forbidden("Not a member of this club")
-                val role = MembershipRole.valueOf(membership.role)
-                if (ROLE_RANK.getValue(role) < ROLE_RANK.getValue(minRole)) {
+                if (ROLE_RANK.getValue(membership.role) < ROLE_RANK.getValue(minRole)) {
                     throw ApiException.forbidden("Requires $minRole role or higher")
                 }
             }

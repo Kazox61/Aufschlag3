@@ -64,4 +64,22 @@ class LoginBackoffTest {
         advance(3601)
         assertNull(backoff.blockedForSeconds("f@x.de"))
     }
+
+    @Test
+    fun `tracked emails are capped - the stalest are evicted, the newest kept`() {
+        val bounded = LoginBackoff(clock = { now }, threshold = 3, maxEntries = 4)
+        repeat(4) { i ->
+            repeat(2) { bounded.recordFailure("old$i@x.de") } // one short of the threshold
+            advance(1)
+        }
+        repeat(3) { bounded.recordFailure("new@x.de") } // 5th distinct email → prune
+        assertNotNull(bounded.blockedForSeconds("new@x.de"))
+
+        // a surviving entry still remembers its two failures: the next one trips the delay
+        bounded.recordFailure("old3@x.de")
+        assertNotNull(bounded.blockedForSeconds("old3@x.de"))
+        // an evicted one starts from zero again
+        bounded.recordFailure("old0@x.de")
+        assertNull(bounded.blockedForSeconds("old0@x.de"))
+    }
 }

@@ -1,5 +1,7 @@
 package com.kazox.aufschlag.repositories.postgres
 
+import com.kazox.aufschlag.api.booking.BookingStatus
+import com.kazox.aufschlag.api.booking.PaymentStatus
 import com.kazox.aufschlag.db.BookingsTable
 import com.kazox.aufschlag.db.ClubsTable
 import com.kazox.aufschlag.db.CourtsTable
@@ -8,6 +10,7 @@ import com.kazox.aufschlag.repositories.BookingRepository
 import com.kazox.aufschlag.repositories.BookingRow
 import com.kazox.aufschlag.repositories.BookingWithNamesRow
 import com.kazox.aufschlag.repositories.BookingWithUserRow
+import com.kazox.aufschlag.repositories.Keyset
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -22,7 +25,7 @@ class PostgresBookingRepository : BookingRepository {
         BookingsTable.selectAll()
             .where {
                 (BookingsTable.courtId eq courtId) and
-                    (BookingsTable.status inList listOf(STATUS_ACTIVE, STATUS_BLOCKED)) and
+                    (BookingsTable.status inList listOf(BookingStatus.ACTIVE, BookingStatus.BLOCKED)) and
                     (BookingsTable.startsAt less to) and
                     (BookingsTable.endsAt greater from)
             }
@@ -34,7 +37,7 @@ class PostgresBookingRepository : BookingRepository {
             .selectAll()
             .where {
                 (BookingsTable.courtId eq courtId) and
-                    (BookingsTable.status inList listOf(STATUS_ACTIVE, STATUS_BLOCKED)) and
+                    (BookingsTable.status inList listOf(BookingStatus.ACTIVE, BookingStatus.BLOCKED)) and
                     (BookingsTable.startsAt less to) and
                     (BookingsTable.endsAt greater from)
             }
@@ -47,12 +50,12 @@ class PostgresBookingRepository : BookingRepository {
         userId: Uuid?,
         startsAt: Instant,
         endsAt: Instant,
-        status: String,
+        status: BookingStatus,
         note: String?,
         basePriceCents: Int,
         discountPct: Int,
         finalPriceCents: Int,
-        paymentStatus: String,
+        paymentStatus: PaymentStatus,
     ): Uuid {
         val id = Uuid.random()
         BookingsTable.insert {
@@ -82,30 +85,30 @@ class PostgresBookingRepository : BookingRepository {
         BookingsTable.selectAll()
             .where {
                 (BookingsTable.userId eq userId) and (BookingsTable.clubId eq clubId) and
-                    (BookingsTable.status eq STATUS_ACTIVE) and (BookingsTable.endsAt greater now)
+                    (BookingsTable.status eq BookingStatus.ACTIVE) and (BookingsTable.endsAt greater now)
             }
             .count()
             .toInt()
 
-    override fun cancel(id: Uuid, clubId: Uuid, ownerId: Uuid, paymentStatus: String): Int =
+    override fun cancel(id: Uuid, clubId: Uuid, ownerId: Uuid, paymentStatus: PaymentStatus): Int =
         BookingsTable.update({
             (BookingsTable.id eq id) and (BookingsTable.clubId eq clubId) and
-                (BookingsTable.userId eq ownerId) and (BookingsTable.status eq STATUS_ACTIVE)
+                (BookingsTable.userId eq ownerId) and (BookingsTable.status eq BookingStatus.ACTIVE)
         }) {
-            it[BookingsTable.status] = STATUS_CANCELLED
+            it[BookingsTable.status] = BookingStatus.CANCELLED
             it[BookingsTable.paymentStatus] = paymentStatus
         }
 
-    override fun cancelAny(id: Uuid, clubId: Uuid, paymentStatus: String): Int =
+    override fun cancelAny(id: Uuid, clubId: Uuid, paymentStatus: PaymentStatus): Int =
         BookingsTable.update({
             (BookingsTable.id eq id) and (BookingsTable.clubId eq clubId) and
-                (BookingsTable.status inList listOf(STATUS_ACTIVE, STATUS_BLOCKED))
+                (BookingsTable.status inList listOf(BookingStatus.ACTIVE, BookingStatus.BLOCKED))
         }) {
-            it[BookingsTable.status] = STATUS_CANCELLED
+            it[BookingsTable.status] = BookingStatus.CANCELLED
             it[BookingsTable.paymentStatus] = paymentStatus
         }
 
-    override fun updatePayment(id: Uuid, clubId: Uuid, paymentStatus: String): Int =
+    override fun updatePayment(id: Uuid, clubId: Uuid, paymentStatus: PaymentStatus): Int =
         BookingsTable.update({
             (BookingsTable.id eq id) and (BookingsTable.clubId eq clubId) and (BookingsTable.userId.isNotNull())
         }) {
@@ -114,45 +117,33 @@ class PostgresBookingRepository : BookingRepository {
 
     override fun cancelAllFutureForUser(userId: Uuid, now: Instant): Int {
         val waived = BookingsTable.update({
-            (BookingsTable.userId eq userId) and (BookingsTable.status eq STATUS_ACTIVE) and
-                (BookingsTable.endsAt greater now) and (BookingsTable.paymentStatus eq PAYMENT_DUE)
+            (BookingsTable.userId eq userId) and (BookingsTable.status eq BookingStatus.ACTIVE) and
+                (BookingsTable.endsAt greater now) and (BookingsTable.paymentStatus eq PaymentStatus.DUE)
         }) {
-            it[BookingsTable.status] = STATUS_CANCELLED
-            it[BookingsTable.paymentStatus] = PAYMENT_WAIVED
+            it[BookingsTable.status] = BookingStatus.CANCELLED
+            it[BookingsTable.paymentStatus] = PaymentStatus.WAIVED
         }
         val others = BookingsTable.update({
-            (BookingsTable.userId eq userId) and (BookingsTable.status eq STATUS_ACTIVE) and
-                (BookingsTable.endsAt greater now) and (BookingsTable.paymentStatus neq PAYMENT_DUE)
+            (BookingsTable.userId eq userId) and (BookingsTable.status eq BookingStatus.ACTIVE) and
+                (BookingsTable.endsAt greater now) and (BookingsTable.paymentStatus neq PaymentStatus.DUE)
         }) {
-            it[BookingsTable.status] = STATUS_CANCELLED
+            it[BookingsTable.status] = BookingStatus.CANCELLED
         }
         return waived + others
     }
 
-    override fun listUpcomingForUser(
-        userId: Uuid,
-        now: Instant,
-        limit: Int,
-        cursorStartsAt: Instant?,
-        cursorId: Uuid?,
-    ): List<BookingWithNamesRow> =
+    override fun listUpcomingForUser(userId: Uuid, now: Instant, limit: Int, cursor: Keyset?): List<BookingWithNamesRow> =
         BookingsTable
             .innerJoin(CourtsTable) { BookingsTable.courtId eq CourtsTable.id }
             .innerJoin(ClubsTable) { BookingsTable.clubId eq ClubsTable.id }
             .selectAll()
             .where {
                 val ownerCondition = (BookingsTable.userId eq userId) and
-                    (BookingsTable.status eq STATUS_ACTIVE) and
+                    (BookingsTable.status eq BookingStatus.ACTIVE) and
                     (BookingsTable.endsAt greater now)
-                val cursorCondition = if (cursorStartsAt != null && cursorId != null) {
-                    (BookingsTable.startsAt greater cursorStartsAt) or
-                        ((BookingsTable.startsAt eq cursorStartsAt) and (BookingsTable.id greater cursorId))
-                } else {
-                    Op.TRUE
-                }
-                ownerCondition and cursorCondition
+                ownerCondition and keysetAfter(BookingsTable.startsAt, BookingsTable.id, cursor)
             }
-            .orderBy(BookingsTable.startsAt to SortOrder.ASC, BookingsTable.id to SortOrder.ASC)
+            .orderBy(*keysetOrder(BookingsTable.startsAt, BookingsTable.id))
             .limit(limit)
             .map {
                 BookingWithNamesRow(
@@ -184,12 +175,4 @@ class PostgresBookingRepository : BookingRepository {
         finalPriceCents = this[BookingsTable.finalPriceCents],
         paymentStatus = this[BookingsTable.paymentStatus],
     )
-
-    companion object {
-        private const val STATUS_ACTIVE = "ACTIVE"
-        private const val STATUS_BLOCKED = "BLOCKED"
-        private const val STATUS_CANCELLED = "CANCELLED"
-        private const val PAYMENT_DUE = "DUE"
-        private const val PAYMENT_WAIVED = "WAIVED"
-    }
 }

@@ -6,7 +6,8 @@ import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import javax.sql.DataSource
 
-fun createDataSource(config: DatabaseConfig): DataSource =
+/** Returned as the concrete type so the owner can close the pool on shutdown. */
+fun createDataSource(config: DatabaseConfig): HikariDataSource =
     HikariDataSource(
         HikariConfig().apply {
             jdbcUrl = config.url

@@ -32,6 +32,8 @@ dependencies {
     implementation(libs.ktor.serverAuthJwt)
     implementation(libs.ktor.serverRateLimit)
     implementation(libs.ktor.serverCors)
+    implementation(libs.ktor.serverBodyLimit)
+    implementation(libs.ktor.serverForwardedHeader)
     implementation(libs.ktor.clientCio)
     implementation(libs.ktor.clientContentNegotiation)
     implementation(libs.exposed.core)
@@ -55,6 +57,7 @@ dependencies {
     testFixturesImplementation(libs.testcontainers.postgresql)
     testFixturesImplementation(libs.ktor.serverCore)
     testFixturesImplementation(libs.ktor.serverNetty)
+    testFixturesImplementation(libs.hikari)
     testFixturesApi(libs.exposed.core)
     testFixturesApi(libs.exposed.jdbc)
 }

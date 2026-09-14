@@ -31,17 +31,14 @@ fun Route.courtRoutes() {
 
     route("/courts") {
         // Any authenticated user, not just members — guest bookings are a supported feature
-        // (PLANNING.md "Booking pricing"), so browsing courts/availability can't require
+        // so browsing courts/availability can't require
         // an existing membership.
         get {
             val (limit, cursor) = call.pageParams()
             call.respond(courtService.list(call.clubId(), limit, cursor))
         }
         get("/{courtId}/slots") {
-            val date = LocalDate.parse(
-                call.request.queryParameters["date"] ?: throw ApiException.validation("date is required"),
-            )
-            call.respond(slotAvailabilityService.slots(call.authenticatedUserId(), call.clubId(), call.courtId(), date))
+            call.respond(slotAvailabilityService.slots(call.authenticatedUserId(), call.clubId(), call.courtId(), call.dateParam()))
         }
         withClubRole(MembershipRole.MEMBER) {
             get("/{courtId}/pricing") {
@@ -52,10 +49,7 @@ fun Route.courtRoutes() {
             // The admin day schedule: the day's bookings *with ids/owners/payment*, which the
             // public slots endpoint deliberately omits — needed to cancel/un-block/mark-paid.
             get("/{courtId}/bookings") {
-                val date = LocalDate.parse(
-                    call.request.queryParameters["date"] ?: throw ApiException.validation("date is required"),
-                )
-                call.respond(bookingService.listForCourtDay(call.clubId(), call.courtId(), date))
+                call.respond(bookingService.listForCourtDay(call.clubId(), call.courtId(), call.dateParam()))
             }
             post {
                 val request = call.receive<CreateCourtRequest>()
@@ -74,3 +68,10 @@ fun Route.courtRoutes() {
 }
 
 private fun ApplicationCall.courtId(): Uuid = parameters.uuid("courtId")
+
+/** Required `?date=YYYY-MM-DD` query parameter. [LocalDate.parse] throws IllegalArgumentException
+ *  on garbage, which StatusPages would otherwise report as a 500 — it's a client error. */
+private fun ApplicationCall.dateParam(): LocalDate {
+    val raw = request.queryParameters["date"] ?: throw ApiException.validation("date is required")
+    return runCatching { LocalDate.parse(raw) }.getOrNull() ?: throw ApiException.validation("Invalid date")
+}

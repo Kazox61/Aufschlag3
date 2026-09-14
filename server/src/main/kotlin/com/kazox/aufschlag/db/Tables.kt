@@ -1,5 +1,11 @@
 package com.kazox.aufschlag.db
 
+import com.kazox.aufschlag.api.booking.BookingStatus
+import com.kazox.aufschlag.api.booking.PaymentStatus
+import com.kazox.aufschlag.api.club.ClubStatus
+import com.kazox.aufschlag.api.club.MembershipRole
+import com.kazox.aufschlag.api.club.MembershipStatus
+import com.kazox.aufschlag.api.court.CourtSurface
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.StringColumnType
 import org.jetbrains.exposed.v1.core.Table
@@ -16,8 +22,15 @@ private class JsonbColumnType : StringColumnType() {
 
 private fun Table.jsonb(name: String): Column<String> = registerColumn(name, JsonbColumnType())
 
+/** Enum stored as its name in a `text` column (the CHECK constraint in the migration lists the
+ *  same names). Typed at the column so a status/role typo can't reach SQL and repositories
+ *  never hand out raw strings the services would have to `valueOf`. */
+private inline fun <reified E : Enum<E>> Table.textEnum(name: String): Column<E> =
+    customEnumeration(name, "text", { enumValueOf<E>(it as String) }, { it.name })
+
 // Schema is owned by Flyway (see resources/db/migration); these objects only map
-// the columns the application reads/writes. created_at/updated_at stay DB-managed.
+// the columns the application reads/writes. created_at/updated_at stay DB-managed —
+// created_at is mapped (read-only) where it orders a paginated list.
 
 object UsersTable : Table("users") {
     val id = uuid("id")
@@ -62,7 +75,7 @@ object ClubsTable : Table("clubs") {
     val name = text("name")
     val slug = text("slug")
     val plan = text("plan").default("FREE_BETA")
-    val status = text("status").default("TRIAL") // TRIAL | ACTIVE | SUSPENDED | ARCHIVED
+    val status = textEnum<ClubStatus>("status").default(ClubStatus.TRIAL)
     val timezone = text("timezone")
     val settings = jsonb("settings") // serialized ClubSettings
     val billingRef = text("billing_ref").nullable()
@@ -71,6 +84,7 @@ object ClubsTable : Table("clubs") {
     val phone = text("phone").nullable()
     val website = text("website").nullable()
     val logoUrl = text("logo_url").nullable()
+    val createdAt = timestamp("created_at").databaseGenerated()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -78,9 +92,10 @@ object MembershipsTable : Table("memberships") {
     val id = uuid("id")
     val userId = uuid("user_id")
     val clubId = uuid("club_id")
-    val role = text("role") // OWNER | ADMIN | MEMBER
-    val status = text("status") // PENDING | ACTIVE | PAUSED | SUSPENDED | ENDED
+    val role = textEnum<MembershipRole>("role")
+    val status = textEnum<MembershipStatus>("status")
     val applicationData = jsonb("application_data").nullable()
+    val createdAt = timestamp("created_at").databaseGenerated()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -88,13 +103,14 @@ object CourtsTable : Table("courts") {
     val id = uuid("id")
     val clubId = uuid("club_id")
     val name = text("name")
-    val surface = text("surface") // CLAY | HARD | GRASS | CARPET | ARTIFICIAL_TURF
+    val surface = textEnum<CourtSurface>("surface")
     val indoor = bool("indoor").default(false)
     val active = bool("active").default(true)
     val slotMinutes = integer("slot_minutes").default(60)
     val defaultPriceCents = integer("default_price_cents").default(0)
     val memberDiscountPct = integer("member_discount_pct").default(100)
     val pausedDiscountPct = integer("paused_discount_pct").default(0)
+    val createdAt = timestamp("created_at").databaseGenerated()
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -117,11 +133,11 @@ object BookingsTable : Table("bookings") {
     val userId = uuid("user_id").nullable()
     val startsAt = timestamp("starts_at")
     val endsAt = timestamp("ends_at")
-    val status = text("status") // ACTIVE | CANCELLED | BLOCKED
+    val status = textEnum<BookingStatus>("status")
     val note = text("note").nullable()
     val basePriceCents = integer("base_price_cents")
     val discountPct = integer("discount_pct")
     val finalPriceCents = integer("final_price_cents")
-    val paymentStatus = text("payment_status").default("NONE") // NONE | DUE | PAID | WAIVED
+    val paymentStatus = textEnum<PaymentStatus>("payment_status").default(PaymentStatus.NONE)
     override val primaryKey = PrimaryKey(id)
 }

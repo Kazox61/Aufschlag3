@@ -29,4 +29,26 @@ class RateLimitTest {
                 assertEquals(HttpStatusCode.OK, client.get("/health").status)
             }
         }
+
+    @Test
+    fun `with TRUST_PROXY_HEADERS the limit is keyed on X-Forwarded-For, not the proxy address`() =
+        authTestApp(auth = testAuthConfig.copy(rateLimit = 2), trustProxyHeaders = true) { client ->
+            val email = uniqueEmail("proxied")
+            repeat(2) {
+                assertEquals(HttpStatusCode.Unauthorized, client.login(email, "wrong", forwardedFor = "10.0.0.1").status)
+            }
+            assertEquals(HttpStatusCode.TooManyRequests, client.login(email, "wrong", forwardedFor = "10.0.0.1").status)
+            // a different client behind the same proxy has its own bucket
+            assertEquals(HttpStatusCode.Unauthorized, client.login(email, "wrong", forwardedFor = "10.0.0.2").status)
+        }
+
+    @Test
+    fun `without TRUST_PROXY_HEADERS a forged X-Forwarded-For does not escape the limit`() =
+        authTestApp(auth = testAuthConfig.copy(rateLimit = 2)) { client ->
+            val email = uniqueEmail("forged")
+            repeat(2) {
+                assertEquals(HttpStatusCode.Unauthorized, client.login(email, "wrong", forwardedFor = "10.0.0.$it").status)
+            }
+            assertEquals(HttpStatusCode.TooManyRequests, client.login(email, "wrong", forwardedFor = "10.0.0.9").status)
+        }
 }

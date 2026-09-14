@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Per-email exponential backoff for failed logins — deliberately NOT a hard block:
  * a hard per-email block would let an attacker lock a victim out of their own
- * account by spamming logins (see PLANNING.md). In-memory, i.e. per server
+ * account by spamming logins. In-memory, i.e. per server
  * instance; fine for the single-instance v1 deployment.
  */
 class LoginBackoff(
@@ -16,6 +16,9 @@ class LoginBackoff(
     private val threshold: Int = 3,
     private val baseDelay: Duration = Duration.ofSeconds(1),
     private val maxDelay: Duration = Duration.ofMinutes(5),
+    /** Hard cap on tracked emails. Failed logins against many distinct addresses would
+     *  otherwise grow the map without bound; when it fills, the stalest half is dropped. */
+    private val maxEntries: Int = 10_000,
 ) {
     private data class Entry(val failures: Int, val blockedUntil: Instant?, val lastFailureAt: Instant)
 
@@ -36,6 +39,7 @@ class LoginBackoff(
 
     fun recordFailure(email: String) {
         val now = clock()
+        if (entries.size >= maxEntries && !entries.containsKey(email)) prune(now)
         entries.compute(email) { _, prev ->
             val failures = (prev?.failures ?: 0) + 1
             val blockedUntil = if (failures >= threshold) {
@@ -51,6 +55,19 @@ class LoginBackoff(
 
     fun recordSuccess(email: String) {
         entries.remove(email)
+    }
+
+    /** Drops forgotten entries first; if that isn't enough, evicts the least recently failed
+     *  until half the capacity is free. Losing an attacker's backoff state under this much
+     *  pressure only shortens their delay, it never blocks a legitimate user. */
+    private fun prune(now: Instant) {
+        entries.entries.removeIf { Duration.between(it.value.lastFailureAt, now) > FORGET_AFTER }
+        val excess = entries.size - maxEntries / 2
+        if (excess <= 0) return
+        entries.entries
+            .sortedBy { it.value.lastFailureAt }
+            .take(excess)
+            .forEach { entries.remove(it.key, it.value) }
     }
 
     companion object {

@@ -15,30 +15,44 @@ import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.jwt.jwt
 import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.PayloadTooLargeException
+import io.ktor.server.plugins.bodylimit.RequestBodyLimit
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.plugins.forwardedheaders.ForwardedHeaders
+import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import io.ktor.server.plugins.origin
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
-import kotlinx.serialization.json.Json
 import org.koin.ktor.ext.inject
 import kotlin.uuid.Uuid
 
+/** Every request body is JSON of a handful of fields; the largest legitimate payload is a
+ *  membership application's free-form `applicationData`. Anything bigger is a mistake or an
+ *  attempt to fill a jsonb column, and is rejected before it's read into memory. */
+const val MAX_REQUEST_BODY_BYTES: Long = 64 * 1024
+
 fun Application.configureSerialization() {
     install(ContentNegotiation) {
-        json(
-            Json {
-                ignoreUnknownKeys = true
-                encodeDefaults = true
-                explicitNulls = false
-            },
-        )
+        json(AppJson)
+    }
+    install(RequestBodyLimit) {
+        bodyLimit { MAX_REQUEST_BODY_BYTES }
     }
 }
 
-/** Lets the admin web app (a browser SPA on its own origin, docs/admin-webapp.md) call the API.
+/** Behind a reverse proxy (`TRUST_PROXY_HEADERS=true`) `call.request.origin` — and with it the
+ *  per-IP rate-limit key — must come from the proxy's forwarding headers, not the proxy's own
+ *  address. Off by default: on a directly exposed server these headers are client-controlled. */
+fun Application.configureProxyHeaders(trustProxyHeaders: Boolean) {
+    if (!trustProxyHeaders) return
+    install(ForwardedHeaders)
+    install(XForwardedHeaders)
+}
+
+/** Lets the admin web app (a browser SPA on its own origin) call the API.
  *  Auth is a bearer header, not cookies, so credentials stay disabled; mobile clients send no
  *  Origin header and bypass CORS entirely. Never `anyHost()` — the allowed origins come from
  *  `CORS_ALLOWED_ORIGINS` (production: the deployed admin origin). */
@@ -96,11 +110,20 @@ fun Application.configureStatusPages() {
         exception<ApiException> { call, cause ->
             call.respond(cause.status, ApiError(cause.code, cause.message, cause.field))
         }
-        // Ktor throws this when the request body can't be deserialized
-        exception<BadRequestException> { call, _ ->
+        // Ktor throws this when the request body can't be deserialized. The innermost cause is
+        // kotlinx.serialization's message ("Field 'email' is required…"), which names the
+        // offending field and nothing else — worth passing on, it saves clients guessing.
+        exception<BadRequestException> { call, cause ->
+            val detail = generateSequence<Throwable>(cause) { it.cause }.last().message
             call.respond(
                 HttpStatusCode.BadRequest,
-                ApiError(ErrorCode.VALIDATION_FAILED, "Invalid request"),
+                ApiError(ErrorCode.VALIDATION_FAILED, "Invalid request body: ${detail ?: "malformed JSON"}"),
+            )
+        }
+        exception<PayloadTooLargeException> { call, _ ->
+            call.respond(
+                HttpStatusCode.PayloadTooLarge,
+                ApiError(ErrorCode.VALIDATION_FAILED, "Request body exceeds $MAX_REQUEST_BODY_BYTES bytes"),
             )
         }
         exception<Throwable> { call, cause ->

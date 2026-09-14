@@ -20,8 +20,11 @@ interface Mailer {
     suspend fun sendPasswordReset(to: String, resetToken: String)
 
     /** Mitgliedsantrag decision — without this, the apply→approve loop silently stalls for
-     *  the applicant (PLANNING.md "Auth design"). */
+     *  the applicant. */
     suspend fun sendApplicationDecision(to: String, clubName: String, approved: Boolean)
+
+    /** Releases any underlying HTTP client; called once on server shutdown. */
+    fun close() {}
 }
 
 /** Dev fallback when no MAIL_API_KEY is configured: logs instead of sending. */
@@ -72,6 +75,8 @@ class ResendMailer(
             },
         )
     }
+
+    override fun close() = client.close()
 
     private suspend fun send(to: String, subject: String, text: String) {
         val response = runCatching {

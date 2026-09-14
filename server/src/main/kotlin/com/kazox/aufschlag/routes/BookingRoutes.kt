@@ -23,7 +23,7 @@ fun Route.bookingRoutes() {
 
     route("/bookings") {
         // Any authenticated user, not just members — guest bookings are a supported feature
-        // (PLANNING.md "Booking pricing"), so this deliberately isn't behind withClubRole.
+        // so this deliberately isn't behind withClubRole.
         post {
             val request = call.receive<CreateBookingRequest>()
             call.respond(HttpStatusCode.Created, bookingService.create(call.authenticatedUserId(), call.clubId(), request))

@@ -28,7 +28,7 @@ fun Route.clubRoutes() {
     val membershipService by inject<MembershipService>()
 
     route("/clubs") {
-        // Public club directory — no login required (PLANNING.md API sketch).
+        // Public club directory — no login required.
         get {
             val (limit, cursor) = call.pageParams()
             val query = call.request.queryParameters["search"]
@@ -70,7 +70,7 @@ fun Route.clubRoutes() {
                     }
                 }
                 withClubRole(MembershipRole.ADMIN) {
-                    // "Vereinsdaten" admin settings page (docs/admin-webapp.md).
+                    // "Vereinsdaten" admin settings page.
                     get {
                         call.respond(clubService.get(call.clubId()))
                     }

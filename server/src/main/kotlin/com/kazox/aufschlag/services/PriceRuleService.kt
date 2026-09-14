@@ -27,7 +27,7 @@ class PriceRuleService(
     private val entitlements: EntitlementService,
 ) {
     /** Wholesale replace: validated as one internally consistent set before anything is
-     *  written, then swapped in in a single transaction (PLANNING.md "Booking pricing"). */
+     *  written, then swapped in in a single transaction. */
     suspend fun replace(clubId: Uuid, courtId: Uuid, request: ReplacePriceRulesRequest): List<PriceRuleResponse> {
         request.rules.forEach { validate(it) }
         val engineRules = request.rules.map { it.toEngineRule() }

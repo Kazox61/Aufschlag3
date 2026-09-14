@@ -4,6 +4,7 @@ import com.kazox.aufschlag.db.RefreshTokensTable
 import com.kazox.aufschlag.repositories.RefreshTokenRepository
 import com.kazox.aufschlag.repositories.RefreshTokenRow
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -65,6 +66,9 @@ class PostgresRefreshTokenRepository : RefreshTokenRepository {
             it[revokedAt] = now
         }
     }
+
+    override fun deleteExpiredBefore(cutoff: Instant): Int =
+        RefreshTokensTable.deleteWhere { RefreshTokensTable.expiresAt less cutoff }
 
     private fun ResultRow.toRow() = RefreshTokenRow(
         id = this[RefreshTokensTable.id],

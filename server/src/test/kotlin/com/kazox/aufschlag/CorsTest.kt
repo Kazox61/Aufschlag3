@@ -8,9 +8,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** CORS exists solely for the admin web app (docs/admin-webapp.md) — a browser preflight from an
+/** CORS exists solely for the admin web app — a browser preflight from an
  *  allowed origin must succeed, everything else must not get an allow header. Uses the default
- *  origins baked into [com.kazox.aufschlag.module] (the adminApp dev server on :8081). */
+ *  origins baked into [com.kazox.aufschlag.module] (the admin web app dev server on :8081). */
 class CorsTest {
 
     @Test

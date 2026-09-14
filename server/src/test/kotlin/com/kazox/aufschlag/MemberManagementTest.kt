@@ -16,8 +16,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
-/** PUT /clubs/{clubId}/members/{membershipId} — admin member management (docs/admin-webapp.md
- *  §1.2): role MEMBER↔ADMIN, status ACTIVE/PAUSED/SUSPENDED/ENDED, OWNER rows untouchable,
+/** PUT /clubs/{clubId}/members/{membershipId} — admin member management: role MEMBER↔ADMIN, status ACTIVE/PAUSED/SUSPENDED/ENDED, OWNER rows untouchable,
  *  ADMIN targets require an OWNER caller, self-targeting forbidden. */
 class MemberManagementTest {
 

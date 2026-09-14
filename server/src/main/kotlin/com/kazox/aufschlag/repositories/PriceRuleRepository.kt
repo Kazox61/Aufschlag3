@@ -31,7 +31,7 @@ interface PriceRuleRepository {
 
     /** Deletes the court's existing rules and inserts [rules] — callers wrap this in one
      *  transaction so concurrent admin edits are last-write-wins of an internally consistent
-     *  set, never a partial-overlap merge (PLANNING.md "Booking pricing"). Callers must hold
+     *  set, never a partial-overlap merge. Callers must hold
      *  [lockForReplace] for [courtId] first: a plain delete-then-insert takes no lock when the
      *  court currently has zero rules (or once the delete has removed all matching rows), so two
      *  concurrent replaces could otherwise both insert, leaving an overlapping set behind. */

@@ -30,12 +30,14 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
@@ -105,9 +107,12 @@ class RecordingMailer : Mailer {
 fun authTestApp(
     auth: AuthConfig = testAuthConfig,
     mailer: Mailer = LoggingMailer(),
+    trustProxyHeaders: Boolean = false,
     block: suspend ApplicationTestBuilder.(HttpClient) -> Unit,
 ) = testApplication {
-    application { module(TestDatabase.dataSource, TestDatabase.database, auth, mailer) }
+    application {
+        module(TestDatabase.dataSource, TestDatabase.database, auth, mailer, trustProxyHeaders = trustProxyHeaders)
+    }
     val client = createClient {
         install(ContentNegotiation) { json() }
     }
@@ -129,9 +134,10 @@ suspend fun HttpClient.register(
     setBody(RegisterRequest(email, password, name))
 }
 
-suspend fun HttpClient.login(email: String, password: String): HttpResponse =
+suspend fun HttpClient.login(email: String, password: String, forwardedFor: String? = null): HttpResponse =
     post("/v1/auth/login") {
         contentType(ContentType.Application.Json)
+        if (forwardedFor != null) header(HttpHeaders.XForwardedFor, forwardedFor)
         setBody(LoginRequest(email, password))
     }
 
@@ -294,8 +300,12 @@ suspend fun HttpClient.updateCourt(
         setBody(request)
     }
 
-suspend fun HttpClient.listCourts(accessToken: String, clubId: String): HttpResponse =
-    get("/v1/clubs/$clubId/courts") { bearerAuth(accessToken) }
+suspend fun HttpClient.listCourts(accessToken: String, clubId: String, limit: Int? = null, cursor: String? = null): HttpResponse =
+    get("/v1/clubs/$clubId/courts") {
+        bearerAuth(accessToken)
+        if (limit != null) parameter("limit", limit)
+        if (cursor != null) parameter("cursor", cursor)
+    }
 
 suspend fun HttpClient.replacePriceRules(
     accessToken: String,

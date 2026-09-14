@@ -1,13 +1,16 @@
 package com.kazox.aufschlag.services
 
 import com.kazox.aufschlag.ApiException
+import com.kazox.aufschlag.AppJson
 import com.kazox.aufschlag.api.ErrorCode
 import com.kazox.aufschlag.api.Page
 import com.kazox.aufschlag.api.club.ClubResponse
 import com.kazox.aufschlag.api.club.ClubSettings
-import com.kazox.aufschlag.api.club.ClubStatus
 import com.kazox.aufschlag.api.club.CreateClubRequest
+import com.kazox.aufschlag.api.club.MembershipRole
+import com.kazox.aufschlag.api.club.MembershipStatus
 import com.kazox.aufschlag.api.club.UpdateClubProfileRequest
+import com.kazox.aufschlag.db.isUniqueViolation
 import com.kazox.aufschlag.db.withTransaction
 import com.kazox.aufschlag.repositories.ClubRepository
 import com.kazox.aufschlag.repositories.ClubRow
@@ -15,9 +18,7 @@ import com.kazox.aufschlag.repositories.MembershipRepository
 import com.kazox.aufschlag.repositories.UserRepository
 import io.ktor.http.HttpStatusCode
 import kotlinx.datetime.TimeZone
-import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.jdbc.Database
-import java.sql.SQLException
 import kotlin.uuid.Uuid
 
 class ClubService(
@@ -27,7 +28,7 @@ class ClubService(
     private val users: UserRepository,
     private val entitlements: EntitlementService,
 ) {
-    /** Super-admin only in v1 — clubs onboard manually (PLANNING.md). Creates the club and
+    /** Super-admin only in v1 — clubs onboard manually. Creates the club and
      *  its initial OWNER membership in one transaction. */
     suspend fun create(callerUserId: Uuid, request: CreateClubRequest): ClubResponse {
         val name = request.name.trim()
@@ -49,33 +50,27 @@ class ClubService(
 
                 if (clubs.findBySlug(slug) != null) throw slugTaken()
                 val clubId = clubs.create(name, slug, timezone, settingsJson)
-                memberships.create(owner.id, clubId, role = ROLE_OWNER, status = STATUS_ACTIVE, applicationDataJson = null)
+                memberships.create(owner.id, clubId, role = MembershipRole.OWNER, status = MembershipStatus.ACTIVE, applicationDataJson = null)
                 clubs.findById(clubId)!!.toResponse()
             }
         } catch (e: Exception) {
             // concurrent create with the same slug loses the unique-index race
-            if (isUniqueViolation(e)) throw slugTaken() else throw e
+            if (e.isUniqueViolation()) throw slugTaken() else throw e
         }
     }
 
     /** Public club directory — no authentication required. ARCHIVED clubs are excluded. */
     suspend fun search(query: String?, limit: Int, cursor: String?): Page<ClubResponse> {
-        val cursorId = parseCursor(cursor)
-        val pageSize = limit.coerceIn(1, MAX_PAGE_SIZE)
+        val keyset = parseKeysetCursor(cursor)
+        val pageSize = pageSizeOf(limit)
         val rows = withTransaction(db) {
-            clubs.search(query, entitlements.directoryHiddenStatuses(), pageSize + 1, cursorId)
+            clubs.search(query, entitlements.directoryHiddenStatuses(), pageSize + 1, keyset)
         }
-        val page = rows.take(pageSize)
-        return Page(
-            items = page.map { it.toResponse() },
-            nextCursor = if (rows.size > pageSize) page.last().id.toString() else null,
-        )
+        return rows.toPage(pageSize, ClubRow::keyset, ClubRow::toResponse)
     }
 
-    /** Single-club lookup backing the admin settings page. Any club member could read this, but
-     *  in practice only [updateProfile]'s route wires this in — both gated by [ApiException].
-     *  Called with the route's ADMIN role check already done (docs/admin-webapp.md admin-only
-     *  scope). */
+    /** Single-club lookup backing the admin settings page — the route gates it to ADMIN+ via
+     *  [com.kazox.aufschlag.routes.withClubRole], so no membership check here. */
     suspend fun get(clubId: Uuid): ClubResponse = withTransaction(db) {
         (clubs.findById(clubId) ?: throw ApiException.notFound("Club not found")).toResponse()
     }
@@ -104,13 +99,10 @@ class ClubService(
         if (email.length > 254 || !email.contains("@")) throw ApiException.validation("Invalid contact email")
     }
 
-    private fun parseCursor(cursor: String?): Uuid? =
-        cursor?.let { runCatching { Uuid.parse(it) }.getOrNull() ?: throw ApiException.validation("Invalid cursor") }
-
     private fun defaultSettingsJson(): String {
         val settings = ClubSettings()
         settings.validate()
-        return json.encodeToString(ClubSettings.serializer(), settings)
+        return AppJson.encodeToString(ClubSettings.serializer(), settings)
     }
 
     private fun validateName(name: String) {
@@ -132,15 +124,8 @@ class ClubService(
     private fun slugTaken() =
         ApiException(HttpStatusCode.Conflict, ErrorCode.SLUG_TAKEN, "This slug is already taken")
 
-    private fun isUniqueViolation(e: Throwable): Boolean =
-        generateSequence(e) { it.cause }.any { it is SQLException && it.sqlState == "23505" }
-
     companion object {
         private val SLUG_REGEX = Regex("[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?")
-        private const val MAX_PAGE_SIZE = 50
-        private const val ROLE_OWNER = "OWNER"
-        private const val STATUS_ACTIVE = "ACTIVE"
-        private val json = Json { ignoreUnknownKeys = true }
     }
 }
 
@@ -148,7 +133,7 @@ internal fun ClubRow.toResponse() = ClubResponse(
     id = id.toString(),
     name = name,
     slug = slug,
-    status = ClubStatus.valueOf(status),
+    status = status,
     timezone = timezone,
     address = address,
     contactEmail = contactEmail,
