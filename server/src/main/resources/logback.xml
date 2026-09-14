@@ -1,12 +1,16 @@
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
-    <root level="trace">
+    <!-- LOG_LEVEL=DEBUG for local debugging. Exposed logs every statement with its parameters
+         inlined (password/token hashes included) at DEBUG, so SQL logging is a separate switch
+         (SQL_LOG_LEVEL=DEBUG) that stays off unless explicitly asked for. -->
+    <root level="${LOG_LEVEL:-INFO}">
         <appender-ref ref="STDOUT"/>
     </root>
+    <logger name="Exposed" level="${SQL_LOG_LEVEL:-INFO}"/>
     <logger name="org.eclipse.jetty" level="INFO"/>
     <logger name="io.netty" level="INFO"/>
 </configuration>
