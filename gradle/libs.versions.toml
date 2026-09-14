@@ -16,6 +16,7 @@ kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.10.0"
 ktor = "3.5.2"
 logback = "1.6.3"
+kotlinx-datetime = "0.8.0"
 material3 = "1.11.0-alpha07"
 
 # 3rd party
@@ -37,6 +38,7 @@ jetbrains-material3-adaptiveNavigation3 = { module = "org.jetbrains.compose.mate
 jetbrains-lifecycle-viewmodelNavigation3 = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "compose-multiplatform-lifecycle" }
 
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
