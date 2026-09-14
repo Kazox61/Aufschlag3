@@ -157,14 +157,14 @@ public fun Card(
     )
 
     // ─── Hover elevation lift ────────────────────────────
-    val elevation = KazTheme.elevation
+    val themeElevation = KazTheme.elevation
     val hoverElevationBoost =
         if (
             hasAnimation &&
             animation == CardAnimation.Hover &&
             isHovered
         ) {
-            elevation.low
+            themeElevation.low
         } else {
             0.dp
         }

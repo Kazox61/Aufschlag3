@@ -258,144 +258,33 @@ public fun Fab(
     elevation: Dp = KazTheme.elevation.high,
     interactionSource: MutableInteractionSource? = null,
 ) {
-    @Suppress("NAME_SHADOWING")
-    val interactionSource = interactionSource ?: remember { MutableInteractionSource() }
-    val isEffectivelyEnabled = enabled && !loading
-    val isHovered by interactionSource.collectIsHoveredAsState()
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    // ─── Resolved values ────────────────────────────────
-    val motion = KazTheme.motion
     val sizeValues = FabDefaults.sizeValues(size)
-    val shape = KazTheme.shapes.xl
 
-    val containerColor = colors.container(isEffectivelyEnabled)
-    val contentColor = colors.content(isEffectivelyEnabled)
-
-    // ─── Hover/press color modulation ───────────────────
-    val themeColors = KazTheme.colors
-
-    val modulatedContainer =
-        when {
-            !isEffectivelyEnabled -> containerColor
-            isPressed -> {
-                if (colors.pressedContainerColor != Color.Unspecified) {
-                    colors.pressedContainerColor
-                } else {
-                    lerp(containerColor, themeColors.onBackground, 1f - motion.pressAlpha)
-                }
-            }
-            isHovered -> {
-                if (colors.hoverContainerColor != Color.Unspecified) {
-                    colors.hoverContainerColor
-                } else {
-                    lerp(containerColor, themeColors.onBackground, 1f - motion.hoverAlpha)
-                }
-            }
-            else -> containerColor
-        }
-
-    // ─── Animation (from theme motion tokens) ──────────
-    val animationSpec =
-        when (animation) {
-            FabAnimation.None -> null
-            FabAnimation.Scale -> motion.springDefault
-            FabAnimation.Bounce -> motion.springBouncy
-        }
-
-    val targetScale =
-        when {
-            !isEffectivelyEnabled || animation == FabAnimation.None -> 1f
-            isPressed ->
-                when (animation) {
-                    FabAnimation.Scale -> motion.pressScaleSubtle
-                    FabAnimation.Bounce -> motion.pressScaleBouncy
-                    FabAnimation.None -> 1f
-                }
-            else -> 1f
-        }
-
-    val scale by animateFloatAsState(
-        targetValue = targetScale,
-        animationSpec = animationSpec ?: spring(),
-    )
-
-    val animatedBackground by animateColorAsState(
-        targetValue = modulatedContainer,
-        animationSpec = tween(motion.durationDefault),
-    )
-
-    // ─── Hover elevation lift ───────────────────────────
-    val hoverElevation = if (isHovered && isEffectivelyEnabled) 2.dp else 0.dp
-    val animatedElevation by animateFloatAsState(
-        targetValue = (elevation + hoverElevation).value,
-        animationSpec = tween(motion.durationDefault),
-    )
-
-    // ─── Modifiers ──────────────────────────────────────
-    val animationModifier =
-        if (animation != FabAnimation.None) {
-            Modifier.graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-        } else {
-            Modifier
-        }
-
-    Row(
-        modifier =
-            modifier
-                .then(animationModifier)
-                .semantics(mergeDescendants = true) {
-                    role = Role.Button
-                    if (label.isNotEmpty()) {
-                        contentDescription = label
-                    }
-                    if (!isEffectivelyEnabled) {
-                        disabled()
-                    }
-                }.shadow(animatedElevation.dp, shape)
-                .background(animatedBackground, shape)
-                .clip(shape)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    enabled = isEffectivelyEnabled,
-                    role = Role.Button,
-                    onClick = onClick,
-                ).defaultMinSize(
-                    minHeight = sizeValues.minSize,
-                    minWidth = sizeValues.minSize,
-                ).padding(horizontal = sizeValues.horizontalPadding),
-        horizontalArrangement =
-            Arrangement.spacedBy(
-                sizeValues.contentSpacing,
-                Alignment.CenterHorizontally,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
+    Fab(
+        label = label,
+        onClick = onClick,
+        modifier = modifier,
+        variant = variant,
+        size = size,
+        animation = animation,
+        enabled = enabled,
+        loading = loading,
+        colors = colors,
+        elevation = elevation,
+        interactionSource = interactionSource,
     ) {
-        CompositionLocalProvider(
-            LocalContentColor provides contentColor,
-            LocalTextStyle provides KazTheme.typography.small,
-        ) {
-            if (loading) {
-                Spinner(
-                    size = sizeValues.spinnerSize,
-                    trackColor = null,
-                    label = "Loading",
-                )
-            } else {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    size = sizeValues.iconSize,
-                )
-            }
+        // The content overload renders the spinner while loading; the icon is
+        // replaced by it rather than shown alongside.
+        if (!loading) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                size = sizeValues.iconSize,
+            )
+        }
 
-            if (expanded && label.isNotEmpty()) {
-                Text(text = label)
-            }
+        if (expanded && label.isNotEmpty()) {
+            Text(text = label)
         }
     }
 }

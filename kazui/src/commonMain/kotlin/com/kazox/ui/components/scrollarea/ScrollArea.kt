@@ -300,28 +300,14 @@ private fun VerticalScrollbar(
     val thumbShape = KazTheme.shapes.full
 
     val minThumbPx: Float = with(density) { SCROLLBAR_MIN_THUMB.toPx() }
-
-    // Calculate thumb size and position
-    val totalContentPx = containerHeightPx + maxScrollValue
-    val thumbFraction =
-        if (totalContentPx > 0) {
-            (containerHeightPx.toFloat() / totalContentPx)
-                .coerceIn(0.05f, 1f)
-        } else {
-            1f
-        }
-    val thumbHeightPx =
-        (containerHeightPx * thumbFraction).coerceAtLeast(minThumbPx)
-    val thumbHeightDp: Dp = with(density) { thumbHeightPx.toDp() }
-
-    val scrollFraction =
-        if (maxScrollValue > 0) {
-            scrollValue.toFloat() / maxScrollValue
-        } else {
-            0f
-        }
-    val thumbOffsetPx =
-        ((containerHeightPx - thumbHeightPx) * scrollFraction).toInt()
+    val thumb =
+        thumbGeometry(
+            scrollValue = scrollValue,
+            maxScrollValue = maxScrollValue,
+            containerPx = containerHeightPx,
+            minThumbPx = minThumbPx,
+        )
+    val thumbHeightDp: Dp = with(density) { thumb.sizePx.toDp() }
 
     Box(
         modifier =
@@ -346,7 +332,7 @@ private fun VerticalScrollbar(
                 Modifier
                     .width(thickness)
                     .height(thumbHeightDp)
-                    .offset { IntOffset(0, thumbOffsetPx) }
+                    .offset { IntOffset(0, thumb.offsetPx) }
                     .background(thumbColor, thumbShape),
         )
     }
@@ -370,27 +356,14 @@ private fun HorizontalScrollbar(
     val thumbShape = KazTheme.shapes.full
 
     val minThumbPx: Float = with(density) { SCROLLBAR_MIN_THUMB.toPx() }
-
-    val totalContentPx = containerWidthPx + maxScrollValue
-    val thumbFraction =
-        if (totalContentPx > 0) {
-            (containerWidthPx.toFloat() / totalContentPx)
-                .coerceIn(0.05f, 1f)
-        } else {
-            1f
-        }
-    val thumbWidthPx =
-        (containerWidthPx * thumbFraction).coerceAtLeast(minThumbPx)
-    val thumbWidthDp: Dp = with(density) { thumbWidthPx.toDp() }
-
-    val scrollFraction =
-        if (maxScrollValue > 0) {
-            scrollValue.toFloat() / maxScrollValue
-        } else {
-            0f
-        }
-    val thumbOffsetPx =
-        ((containerWidthPx - thumbWidthPx) * scrollFraction).toInt()
+    val thumb =
+        thumbGeometry(
+            scrollValue = scrollValue,
+            maxScrollValue = maxScrollValue,
+            containerPx = containerWidthPx,
+            minThumbPx = minThumbPx,
+        )
+    val thumbWidthDp: Dp = with(density) { thumb.sizePx.toDp() }
 
     Box(
         modifier =
@@ -415,8 +388,52 @@ private fun HorizontalScrollbar(
                 Modifier
                     .height(thickness)
                     .width(thumbWidthDp)
-                    .offset { IntOffset(thumbOffsetPx, 0) }
+                    .offset { IntOffset(thumb.offsetPx, 0) }
                     .background(thumbColor, thumbShape),
         )
     }
+}
+
+// ─── Internal: Thumb Geometry ──────────────────────────────
+
+/** Thumb size and offset along the scroll axis, in pixels. */
+private data class ThumbGeometry(
+    val sizePx: Float,
+    val offsetPx: Int,
+)
+
+/**
+ * Computes the thumb's length and position along the scroll axis.
+ *
+ * The thumb fraction is the visible portion of the total content (clamped to
+ * at least 5%), and its length never drops below [minThumbPx] — unless the
+ * track itself is shorter than that, in which case the thumb fills the track.
+ * When there is nothing to scroll the thumb fills the track and sits at offset 0.
+ */
+private fun thumbGeometry(
+    scrollValue: Int,
+    maxScrollValue: Int,
+    containerPx: Int,
+    minThumbPx: Float,
+): ThumbGeometry {
+    val totalContentPx = containerPx + maxScrollValue
+    val thumbFraction =
+        if (totalContentPx > 0) {
+            (containerPx.toFloat() / totalContentPx).coerceIn(0.05f, 1f)
+        } else {
+            1f
+        }
+    // Never let the minimum push the thumb beyond an undersized track.
+    val effectiveMinPx = minThumbPx.coerceAtMost(containerPx.toFloat())
+    val sizePx = (containerPx * thumbFraction).coerceAtLeast(effectiveMinPx)
+
+    val scrollFraction =
+        if (maxScrollValue > 0) {
+            scrollValue.toFloat() / maxScrollValue
+        } else {
+            0f
+        }
+    val offsetPx = ((containerPx - sizePx) * scrollFraction).toInt()
+
+    return ThumbGeometry(sizePx = sizePx, offsetPx = offsetPx)
 }
